@@ -1,0 +1,23 @@
+{
+  "google.com": true,
+  "https://www.google.com/": true,
+  "facebook.com": true,
+  "youtube.com": true,
+  "yahoo.com": true,
+  "baidu.com": true,
+  "amazon.com": true,
+  "wikipedia.org": true,
+  "twitter.com": true,
+  "taobao.com": true,
+  "qq.com": true,
+  "google.co.in": true,
+  "live.com": true,
+  "sina.com.cn": true,
+  "weibo.com": true,
+  "linkedin.com": true,
+  "yahoo.co.jp": true,
+  "tmall.com": true,
+  "blogspot.com": true,
+  "ebay.com": true,
+  "hao123.com": true
+}
