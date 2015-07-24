@@ -2,6 +2,12 @@
  * Created by ruian on 7/18/15.
  */
 
+// Constant values.
+var Contants = {
+    googleSearchBotUA: "Googlebot/2.1 (+http://www.google.com/bot.html)",
+    googleAdBotUA: "AdsBot-Google (+http://www.google.com/adsbot.html)"
+};
+
 // The black list and white list
 function CheckingSet(filename) {
     this.set = {};
@@ -11,7 +17,7 @@ function CheckingSet(filename) {
 
     function newSetFromFile(filename) {
         var xhr = new XMLHttpRequest();
-        xhr.open('GET', chrome.extension.getURL(filename), true);
+        xhr.open('GET', chrome.extension.getURL(filename), true);  // synchronous
         xhr.onreadystatechange = function () {
             if (xhr.readyState == XMLHttpRequest.DONE && xhr.status == 200) {
                 for (var p in JSON.parse(xhr.responseText)) {
@@ -56,11 +62,10 @@ CheckingSet.prototype.isReady = function () {
 
 
 // An verdict for program to pass and check.
-function Verdict(url, simhash) {
-    this.hasresult = false;
+function Verdict(url, pageHash) {
     this.url = url;
-    this.simhash = simhash;
-    // this.spidersimhash = [];
+    this.pageHash = pageHash;
+    this.spiderPageHash = [];
     // distance is optional, we need this only if we are going to call checkCloaking
     // this.distance = 0;
     this.result = null;
@@ -68,20 +73,18 @@ function Verdict(url, simhash) {
 
 Verdict.prototype.setResult = function (result) {
     this.result = result;
-    this.hasresult = true;
 }
-
-Verdict.prototype.resultReady = function () {
-    return this.hasresult;
-};
 
 // The main function to check cloaking and communicate with content scripts.
 function CloakingChecker() {
     this.whitelist = new CheckingSet("res/whitelist.json");
     this.blacklist = new CheckingSet("res/blacklist.json");
+
+    this.textThreshold = 10;
+    this.domThreshold = 5;
 }
 
-CloakingChecker.prototype.checkCloaking = function (url, simhash, verdict) {
+CloakingChecker.prototype.checkCloaking = function (verdict, sendResponse) {
     /*
      * Compare what user sees with with spider copy, return whether it is cloaking or not
      * 1. make a request with spider user agent
@@ -89,19 +92,61 @@ CloakingChecker.prototype.checkCloaking = function (url, simhash, verdict) {
      * 3. compare simhash with spider simhash, if distance is too large then return cloaking
      *
      * Args:
-     *  url: the url to check
-     *  simhash: the summary of what user sees
-     *  verdict: the result object, modify it
+     *  verdict: read the url and simhash property, and set the result.
+     *      url: the url to check
+     *      simhash: the summary of what user sees
+     *  sendResponse: the callback to communicate with content script.
      */
-    verdict.spidersimhash = [];
-    console.log("I am going to do something here");
-    verdict.setResult(false);
+    console.log("I am doing a background request and computing the decision here.");
+
+    /* Fetches url with crawler user agent in the background.
+     */
+    var xhr = new XMLHttpRequest();
+    /* TODO: Do we also need to run on POST?
+     * What does search and ads queries use, POST or GET
+     */
+    xhr.open('GET', verdict.url, false);  // asynchronous
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState == XMLHttpRequest.DONE && xhr.status == 200) {
+            // 1. compute simhash of the requested page
+            // 2. compute the distance between spider copy and user copy and make a final decision.
+            // http://stackoverflow.com/questions/3103962/converting-html-string-into-dom-elements
+            // html -> dom object
+            // http://stackoverflow.com/questions/494143/creating-a-new-dom-element-from-an-html-string-using-built-in-dom-methods-or-pro
+            // replace html
+            console.log("RUIAN");
+            // console.log(xhr.responseText);
+            var doc = new DOMParser().parseFromString(xhr.responseText, "text/html");
+            var sc = new SimhashComputer();
+            var ph = new PageHash(sc.getTextSimhash(doc.body.innerText),
+                sc.getDomSimhash(doc.documentElement));
+            verdict.spiderPageHash.push(ph);
+
+            console.log(verdict.pageHash);
+            console.log(verdict.spiderPageHash[0]);
+
+            var textDist = verdict.pageHash.text.hammingDistance(verdict.spiderPageHash[0].text);
+            var domDist = verdict.pageHash.dom.hammingDistance(verdict.spiderPageHash[0].dom);
+
+            console.log(textDist);
+            console.log(domDist);
+
+            if (textDist > this.textThreshold && domDist > this.domThreshold) {
+                verdict.setResult(true);
+            } else {
+                verdict.setResult(false);
+            }
+            sendResponse({url: verdict.url, simhash: verdict.simhash, result: verdict.result});
+        }
+    }.bind(this);
+    xhr.send();
 }
 
-CloakingChecker.prototype.cloakingVerdict = function (url, simhash) {
+CloakingChecker.prototype.cloakingVerdict = function (url, simhash, sendResponse) {
     if (simhash != null) {
-        var v = new Verdict(url, simhash);
-        this.checkCloaking(url, simhash, v);
+        var ph = new PageHash(new SimhashItem(simhash.text), new SimhashItem(simhash.dom));
+        var v = new Verdict(url, ph);
+        this.checkCloaking(v, sendResponse);
     } else {
         var v = new Verdict(url, simhash);
         console.log("list status, we should guarantee list is ready at this point");
@@ -115,27 +160,50 @@ CloakingChecker.prototype.cloakingVerdict = function (url, simhash) {
             // else do nothing and return
             v.setResult(null);
         }
+        // Send response back to the content script
+        sendResponse({url: v.url, simhash: v.simhash, result: v.result});
     }
-    return v;
 };
 
-var checker = new CloakingChecker();
-
-// Send response back to the content script
-function handeVerdict(verdict, sendResponse) {
-    if (verdict.resultReady()) {
-        sendResponse({url: verdict.url, simhash: verdict.simhash, result: verdict.result});
-    } else {
-        setTimeout(handeVerdict(verdict, sendResponse), 5000);
-    }
+CloakingChecker.prototype.setRequestUserAgent = function (userAgent) {
+    /*
+     * Add filter to the xmlhttprequest.
+     * http://stackoverflow.com/questions/21090733/changing-user-agent-in-xmlhttprequest-from-a-chrome-extension
+     * http://stackoverflow.com/questions/10334909/associate-a-custom-user-agent-to-a-specific-google-chrome-page-tab/10339902#10339902
+     */
+    chrome.webRequest.onBeforeSendHeaders.addListener(
+        function (info) {
+            // Replace the User-Agent header
+            var headers = info.requestHeaders;
+            headers.forEach(function (header, i) {
+                if (header.name.toLowerCase() == 'user-agent') {
+                    header.value = userAgent;
+                }
+            });
+            return {requestHeaders: headers};
+        },
+        // Request filter
+        {
+            // Modify the headers for these pages
+            urls: [
+                "http://*/*",
+                "https://*/*"
+            ],
+            // In the main window and frames
+            types: ["xmlhttprequest"]
+        },
+        ["blocking", "requestHeaders"]
+    );
 }
+
+var checker = new CloakingChecker();
+checker.setRequestUserAgent(Contants.googleSearchBotUA);
 
 // Listen for message from each tab
 chrome.runtime.onMessage.addListener(
     function (request, sender, sendResponse) {
         console.log("request is ", request);
-        var verdict = checker.cloakingVerdict(request.url, request.simhash);
-        handeVerdict(verdict, sendResponse);
+        checker.cloakingVerdict(request.url, request.simhash, sendResponse);
     }
 );
 

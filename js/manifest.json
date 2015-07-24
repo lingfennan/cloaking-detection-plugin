@@ -4,19 +4,25 @@
   "description": "This extension examines whether current page is cloaking or not",
   "version": "1.0",
   "browser_action": {
-    "default_icon": "icon.png",
+    "default_icon": "res/icon.png",
     "default_popup": "popup.html"
   },
   "background": {
     "scripts": [
+      "md5.js",
+      "helper_functions.js",
       "simhash_computer.js",
       "cloaking_checker.js"
     ],
-    "persistent": false
+    "persistent": true
   },
   "permissions": [
     "activeTab",
-    "tabs"
+    "tabs",
+    "webRequest",
+    "webRequestBlocking",
+    "http://*/*",
+    "https://*/*"
   ],
   "content_scripts": [
     {
@@ -27,6 +33,7 @@
       "js": [
         "jquery-2.1.3.min.js",
         "md5.js",
+        "helper_functions.js",
         "simhash_computer.js",
         "tab_inspector.js"
       ],
