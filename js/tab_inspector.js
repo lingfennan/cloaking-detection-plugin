@@ -15,7 +15,6 @@ if (HelperFunctions.interestingPage(tabHost, refererHost)) {
     console.log("Came from " + refererHost + " and current site is " + tabHost);
     var tabURL = window.location.href;
     console.log(tabURL);
-    console.log("I am in content");
 
     // Send a request to the background script to first check known results
     chrome.runtime.sendMessage({url: tabURL, simhash: null}, function (response) {
@@ -25,8 +24,17 @@ if (HelperFunctions.interestingPage(tabHost, refererHost)) {
                 var textSimhash = sc.getTextSimhash(document.body.innerText);
                 var domSimhash = sc.getDomSimhash(document.documentElement);
                 var ph = new PageHash(textSimhash, domSimhash);
-                chrome.runtime.sendMessage({url: tabURL, simhash: {text: ph.text.value, dom: ph.dom.value}},
-                    HelperFunctions.alertIfCloaking);
+                // The second time, we don't pass a callback to the background script, because XmlHttpRequest need to
+                // be synchronous in order to change request header in the background.
+                //
+                // Instead the background script will send a message to the content script later.
+                chrome.runtime.sendMessage({url: tabURL, pageHash: {text: ph.text.value, dom: ph.dom.value}}, null);
+                chrome.runtime.onMessage.addListener(
+                    function handleResponse(request, sender, sendResponse) {
+                        // One time listener.
+                        chrome.runtime.onMessage.removeListener(handleResponse);
+                        HelperFunctions.alertIfCloaking(request);
+                    });
             } else {
                 HelperFunctions.alertIfCloaking(response);
             }

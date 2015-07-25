@@ -64,7 +64,7 @@ CheckingSet.prototype.isReady = function () {
 // An verdict for program to pass and check.
 function Verdict(url, pageHash) {
     this.url = url;
-    this.pageHash = pageHash;
+    this.pageHash = pageHash || null;
     this.spiderPageHash = [];
     // distance is optional, we need this only if we are going to call checkCloaking
     // this.distance = 0;
@@ -80,11 +80,11 @@ function CloakingChecker() {
     this.whitelist = new CheckingSet("res/whitelist.json");
     this.blacklist = new CheckingSet("res/blacklist.json");
 
-    this.textThreshold = 10;
+    this.textThreshold = 4;
     this.domThreshold = 5;
 }
 
-CloakingChecker.prototype.checkCloaking = function (verdict, sendResponse) {
+CloakingChecker.prototype.checkCloaking = function (verdict) {
     /*
      * Compare what user sees with with spider copy, return whether it is cloaking or not
      * 1. make a request with spider user agent
@@ -94,8 +94,7 @@ CloakingChecker.prototype.checkCloaking = function (verdict, sendResponse) {
      * Args:
      *  verdict: read the url and simhash property, and set the result.
      *      url: the url to check
-     *      simhash: the summary of what user sees
-     *  sendResponse: the callback to communicate with content script.
+     *      pageHash: the summary of what user sees
      */
     console.log("I am doing a background request and computing the decision here.");
 
@@ -105,7 +104,7 @@ CloakingChecker.prototype.checkCloaking = function (verdict, sendResponse) {
     /* TODO: Do we also need to run on POST?
      * What does search and ads queries use, POST or GET
      */
-    xhr.open('GET', verdict.url, false);  // asynchronous
+    xhr.open('GET', verdict.url, true);
     xhr.onreadystatechange = function () {
         if (xhr.readyState == XMLHttpRequest.DONE && xhr.status == 200) {
             // 1. compute simhash of the requested page
@@ -114,7 +113,7 @@ CloakingChecker.prototype.checkCloaking = function (verdict, sendResponse) {
             // html -> dom object
             // http://stackoverflow.com/questions/494143/creating-a-new-dom-element-from-an-html-string-using-built-in-dom-methods-or-pro
             // replace html
-            console.log("RUIAN");
+            console.log("Fetching spider copy");
             // console.log(xhr.responseText);
             var doc = new DOMParser().parseFromString(xhr.responseText, "text/html");
             var sc = new SimhashComputer();
@@ -122,34 +121,32 @@ CloakingChecker.prototype.checkCloaking = function (verdict, sendResponse) {
                 sc.getDomSimhash(doc.documentElement));
             verdict.spiderPageHash.push(ph);
 
-            console.log(verdict.pageHash);
-            console.log(verdict.spiderPageHash[0]);
-
             var textDist = verdict.pageHash.text.hammingDistance(verdict.spiderPageHash[0].text);
             var domDist = verdict.pageHash.dom.hammingDistance(verdict.spiderPageHash[0].dom);
-
-            console.log(textDist);
-            console.log(domDist);
 
             if (textDist > this.textThreshold && domDist > this.domThreshold) {
                 verdict.setResult(true);
             } else {
                 verdict.setResult(false);
             }
-            sendResponse({url: verdict.url, simhash: verdict.simhash, result: verdict.result});
+            console.log({url: verdict.url, pageHash: verdict.pageHash, result: verdict.result});
+            chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {
+                chrome.tabs.sendMessage(tabs[0].id, {url: verdict.url, result: verdict.result}, null);
+            });
         }
     }.bind(this);
     xhr.send();
 }
 
-CloakingChecker.prototype.cloakingVerdict = function (url, simhash, sendResponse) {
-    if (simhash != null) {
-        var ph = new PageHash(new SimhashItem(simhash.text), new SimhashItem(simhash.dom));
+CloakingChecker.prototype.cloakingVerdict = function (url, pageHash, sendResponse) {
+    if (pageHash != null) {
+        var ph = new PageHash(new SimhashItem(pageHash.text), new SimhashItem(pageHash.dom));
         var v = new Verdict(url, ph);
-        this.checkCloaking(v, sendResponse);
+        // If we are requesting with pageHash set, the response is going to be sent back using message.
+        this.checkCloaking(v);
     } else {
-        var v = new Verdict(url, simhash);
-        console.log("list status, we should guarantee list is ready at this point");
+        var v = new Verdict(url, pageHash);
+        console.log("List status, we should guarantee list is ready at this point");
         console.log(this.whitelist.isReady());
         console.log(this.blacklist.isReady());
         if (this.whitelist.contains(url)) {
@@ -161,7 +158,7 @@ CloakingChecker.prototype.cloakingVerdict = function (url, simhash, sendResponse
             v.setResult(null);
         }
         // Send response back to the content script
-        sendResponse({url: v.url, simhash: v.simhash, result: v.result});
+        sendResponse({url: v.url, result: v.result});
     }
 };
 
@@ -174,6 +171,7 @@ CloakingChecker.prototype.setRequestUserAgent = function (userAgent) {
     chrome.webRequest.onBeforeSendHeaders.addListener(
         function (info) {
             // Replace the User-Agent header
+            console.log("Changing headers before request!")
             var headers = info.requestHeaders;
             headers.forEach(function (header, i) {
                 if (header.name.toLowerCase() == 'user-agent') {
@@ -187,7 +185,7 @@ CloakingChecker.prototype.setRequestUserAgent = function (userAgent) {
             // Modify the headers for these pages
             urls: [
                 "http://*/*",
-                "https://*/*"
+                "https://*/*",
             ],
             // In the main window and frames
             types: ["xmlhttprequest"]
@@ -203,7 +201,7 @@ checker.setRequestUserAgent(Contants.googleSearchBotUA);
 chrome.runtime.onMessage.addListener(
     function (request, sender, sendResponse) {
         console.log("request is ", request);
-        checker.cloakingVerdict(request.url, request.simhash, sendResponse);
+        checker.cloakingVerdict(request.url, request.pageHash, sendResponse);
     }
 );
 

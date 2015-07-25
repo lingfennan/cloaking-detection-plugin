@@ -1,0 +1,7 @@
+Jul 24: First version done.
+TODO:
+1. Send multiple spider copies.
+2. Support multiple modes and use a button to let user choose mode.
+3. Build a naive server that requests page and answers (moon.gtisc.gatech.edu).
+4. Check whether there is other signals that we can use.
+5. Discuss and see whether it is necessary to publish to https://developer.chrome.com/webstore/publish

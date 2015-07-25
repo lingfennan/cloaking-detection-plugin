@@ -11,4 +11,10 @@ It has several working mode.
 	normal user agent. Compare the dom and text, if significantly different,
 	report to user, and let user decide.
 
+2. Online:
+
+3. Privacy-enhanced Online:
+
+4. Unguarded:
+
 
