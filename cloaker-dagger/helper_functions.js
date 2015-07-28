@@ -135,17 +135,5 @@ var HelperFunctions = {
             num >>= 4;
         }
         return result;
-    },
-    hasLogin: function(text) {
-        var loginArray = ["login", "log in", "LogIn", "Log In", "LOGIN", "LOG IN", "iniciar sesión", "s'identifier",
-            "Einloggen", "ログイン", "로그인", "登陆"];
-        var len = loginArray.length;
-        while(len--) {
-            if (text.indexOf(loginArray[len]) != -1) {
-                // one of the sub-strings is in yourstring
-                return true;
-            }
-        }
-        return false;
     }
 };

@@ -3,11 +3,6 @@
   "name": "Cloaking Fighter",
   "description": "This extension examines whether current page is cloaking or not",
   "version": "1.0",
-  "icons": {
-    "16": "res/icon.png",
-    "48": "res/icon.png",
-    "128": "res/icon.png"
-  },
   "browser_action": {
     "default_icon": "res/icon.png",
     "default_popup": "popup.html"
@@ -17,7 +12,6 @@
       "md5.js",
       "helper_functions.js",
       "simhash_computer.js",
-      "background_util.js",
       "cloaking_checker.js"
     ],
     "persistent": true
@@ -27,7 +21,6 @@
     "tabs",
     "webRequest",
     "webRequestBlocking",
-    "cookies",
     "http://*/*",
     "https://*/*"
   ],

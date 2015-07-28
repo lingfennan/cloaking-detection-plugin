@@ -17,7 +17,7 @@ if (HelperFunctions.interestingPage(tabHost, refererHost)) {
     console.log(tabURL);
 
     // Send a request to the background script to first check known results
-    chrome.runtime.sendMessage({url: tabURL, simhash: null}, function (response) {
+    chrome.runtime.sendMessage({url: tabURL, pageHash: null, host: null}, function (response) {
             if (response.result == null) {
                 // if current page is unknown, we compute the simahsh, send it to the backend for comparison
                 var sc = new SimhashComputer();
@@ -28,23 +28,28 @@ if (HelperFunctions.interestingPage(tabHost, refererHost)) {
                 // be synchronous in order to change request header in the background.
                 //
                 // Instead the background script will send a message to the content script later.
-                chrome.runtime.sendMessage({url: tabURL, pageHash: {text: ph.text.value, dom: ph.dom.value}}, null);
-                chrome.runtime.onMessage.addListener(
-                    function handleResponse(request, sender, sendResponse) {
+                chrome.runtime.sendMessage({
+                    url: tabURL,
+                    pageHash: {text: ph.text.value, dom: ph.dom.value},
+                    host: tabHost  // used for check login page
+                }, null);
+                chrome.runtime.onMessage.addListener(function handleResponse(request, sender, sendResponse) {
                         // One time listener.
                         chrome.runtime.onMessage.removeListener(handleResponse);
                         HelperFunctions.alertIfCloaking(request);
-                    });
+                    }
+                );
             } else {
+                console.log("This is known website, reuse results.");
                 HelperFunctions.alertIfCloaking(response);
             }
         }
     );
 }
 
-function getText () {
+function getText() {
     return document.body.innerText;
 }
-function getHTML () {
+function getHTML() {
     return document.body.outerHTML;
 }

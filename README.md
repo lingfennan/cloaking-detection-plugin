@@ -7,14 +7,16 @@ It has several working mode.
 1. Offline: 
 	a. compare the landing URL against the blacklist. If hit, warn user.
 	b. if not hit, compare agasint a whitelist. If hit, pass.
-	c. if no data available, fetch the link with spider user agent and
-	normal user agent. Compare the dom and text, if significantly different,
+	c. if no data available, fetch the link with spider user agent, check if it is Login page that we want to ignore,
+	i.e. user visited this page before and it contains a login keyword in spider copy. If yes, pass.
+	d. Compare the dom and text between spider copy and user copy, if significantly different,
 	report to user, and let user decide.
 
 2. Online:
+	Similar to Offline, except that spider copy crawling is done at server side.
 
 3. Privacy-enhanced Online:
+	Similar to Online, except that user copy is sent back through rappor, which provides privacy enhancement.
 
 4. Unguarded:
-
-
+	Turn off this plugin.

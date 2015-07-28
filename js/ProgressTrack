@@ -1,7 +1,13 @@
 Jul 24: First version done.
+Jul 27: Login patch done.
 TODO:
+0. Render spider view on click. Maybe place inside address bar? or on extension icon?
 1. Send multiple spider copies.
 2. Support multiple modes and use a button to let user choose mode.
 3. Build a naive server that requests page and answers (moon.gtisc.gatech.edu).
 4. Check whether there is other signals that we can use.
-5. Discuss and see whether it is necessary to publish to https://developer.chrome.com/webstore/publish
+5. Discuss and see whether it is necessary to publish to Chrome webstore https://developer.chrome.com/webstore/publish
+
+TODO Idea:
+1. A way to deal with the login problem is to look for cookies stored by this site, and disable check if there is any.
+This may have false negative, but will be efficient.
