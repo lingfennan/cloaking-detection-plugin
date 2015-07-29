@@ -3,6 +3,9 @@ This is an chrome plugin that help user determine whether the visited landing pa
 (linked from Google search or Google search advertisements) is cloaking or not,
 by comparing what search engine sees with what user sees.
 
+The detailed design document is available in the following link:
+https://docs.google.com/document/d/1OQymxxqX0_yhk9rahhkT9w6eRKGLIrtPMmIppFoO95E/edit
+
 It has several working mode.
 1. Offline: 
 	a. compare the landing URL against the blacklist. If hit, warn user.

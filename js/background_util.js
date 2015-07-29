@@ -35,7 +35,7 @@ function CheckingSet(filename) {
 
 CheckingSet.prototype.extractDomain = function (url) {
     var domain;
-    // find & remove protocol (http, ftp, etc.) and get domain
+    // find & remove protocol (http, ftp, etc.) and get hostname
     if (url.indexOf("://") > -1) {
         domain = url.split('/')[2];
     }
@@ -44,7 +44,7 @@ CheckingSet.prototype.extractDomain = function (url) {
     }
     // find & remove port number
     domain = domain.split(':')[0];
-    // get the 2LD or 3LD domain
+    // get the 2LD or 3LD hostname
     // www.google.com -> google.com
     if (domain.split('.').length > 2) {
         domain = domain.split('.').slice(1).join('.');
@@ -92,8 +92,8 @@ function CookieSet() {
         return ready;
     }
 
-    this.hasCookieForDomain = function (domain, callback) {
-        chrome.cookies.getAll({domain: domain}, function (cookies) {
+    this.hasCookieForDomain = function (domainStr, callback) {
+        chrome.cookies.getAll({domain: domainStr}, function (cookies) {
             callback(cookies.length);
         });
     }
@@ -103,8 +103,8 @@ function CookieSet() {
         chrome.cookies.getAll({}, function (cookies) {
             for (var cookie in cookies) {
                 var key = null;
-                if (cookie.hasOwnProperty("domain")) {
-                    key = cookie.domain;
+                if (cookie.hasOwnProperty("hostname")) {
+                    key = cookie.hostname;
                 } else {
                     key = cookie.url;
                 }
@@ -127,17 +127,29 @@ function HistorySet() {
     this.ready = false;
 }
 
-// An verdict for program to pass and check.
-function Verdict(url, pageHash, domain) {
-    this.url = url;
-    this.pageHash = pageHash || null;
-    this.domain = domain || null;
-    this.spiderPageHash = [];
-    // distance is optional, we need this only if we are going to call checkCloaking
-    // this.distance = 0;
-    this.result = null;
-}
+function HostCache() {
+    var cache = {};
 
-Verdict.prototype.setResult = function (result) {
-    this.result = result;
+    this.setVisibleHostCache = function (host, tabId) {
+        cache[tabId] = host;
+    };
+
+    this.setVisibleHostCacheFromUrl = function (url, tabId) {
+        this.setVisibleHostCache(HelperFunctions.parseHostFromUrl(url), tabId);
+    };
+
+    this.fetchVisibleHostCache = function (tabId) {
+        if (cache.hasOwnProperty(tabId)) {
+            var host = cache[tabId];
+            delete cache[tabId];
+            return host;
+        } else {
+            return null;
+        }
+    };
+
+    this.matchesHost = function (tabId, host) {
+        var cacheHost = this.fetchVisibleHostCache(tabId);
+        return {result: cacheHost && cacheHost == host, visibleHost: cacheHost, landingHost: host};
+    };
 }

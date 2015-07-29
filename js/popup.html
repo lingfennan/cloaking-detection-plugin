@@ -1,37 +1,68 @@
-<!doctype html>
-<!--
- This page is shown when the extension button is clicked, because the
- "browser_action" field in manifest.json contains the "default_popup" key with
- value "popup.html".
- -->
-<html>
-  <head>
-    <title>Getting Started Extension's Popup</title>
-    <style>
-      body {
-        font-family: "Segoe UI", "Lucida Grande", Tahoma, sans-serif;
-        font-size: 100%;
-      }
-      #status {
-        /* avoid an excessively wide status text */
-        white-space: pre;
-        text-overflow: ellipsis;
-        overflow: hidden;
-        max-width: 400px;
-      }
-    </style>
-
-    <!--
-      - JavaScript and HTML must be in separate files: see our Content Security
-      - Policy documentation[1] for details and explanation.
-      -
-      - [1]: https://developer.chrome.com/extensions/contentSecurityPolicy
-     -->
-    <script src="popup.js"></script>
-  </head>
-  <body>
-    <div id="status"></div>
-    <img id="image-result" hidden>
-  </body>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="content-type" content="text/html;charset=UTF-8" />
+  <title>Popup Page for Cloaker Fighter</title>
+  <link rel="stylesheet" type="text/css" href="css/bootstrap-3.0.0.min.css" />
+  <link rel="stylesheet" type="text/css" href="css/font-awesome-4.0.0.css">
+  <link rel="stylesheet" type="text/css" href="css/popup.css" />
+  <script type="text/javascript" src="jquery-2.1.3.min.js"></script>
+  <script type="text/javascript" src="js/bootstrap-3.0.0.min.js"></script>
+  <script type="text/javascript" src="js/popup.js"></script>
+  <script type="text/javascript" src="js/analytics.js"></script>
+</head>
+<body>
+<div class="wrapper">
+  <div id="support">
+    <div id="support_title"><strong></strong></div>
+    <div id="support_checkbox" class="text-center">
+      <form action="#" class="form-inline">
+        <input type="checkbox">&nbsp;&nbsp;<span id="support_checkbox_label"></span>
+      </form>
+      <div id="support_message"></div>
+    </div>
+  </div>
+  <div id="setting">
+    <div>
+      <div id="mode_select"><strong></strong></div>
+      <div class="text-center">
+        <div class="btn-group" data-toggle="buttons" id="buttons">
+          <label class="btn btn-default" id="lite">
+            <input type="radio" name="options" id="input_lite"><span class="mode_lite_name"></span>
+          </label>
+          <label class="btn btn-default" id="normal">
+            <input type="radio" name="options" id="input_normal"><span class="mode_normal_name"></span>
+          </label>
+          <label class="btn btn-default" id="redirect">
+            <input type="radio" name="options" id="input_redirect"><span class="mode_redirect_name"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div id="setting_description">
+      <table class="table table-hover">
+        <tbody>
+        <tr>
+          <td><span class="mode_lite_name"></span></td>
+          <td><span class="mode_lite_desc"></span></td>
+        </tr>
+        <tr>
+          <td><span class="mode_normal_name"></span></td>
+          <td><span class="mode_normal_desc"></span></td>
+        </tr>
+        <tr>
+          <td><span class="mode_redirect_name"></span></td>
+          <td><span class="mode_redirect_desc"></span></td>
+        </tr>
+        </tbody>
+      </table>
+      <div class="text_block" id="help_text"></div>
+    </div>
+    <div class="text_block" id="feedback"></div>
+    <div class="text_block" id="rating"></div>
+  </div>  <!-- setting -->
+  <div id="version" class="muted"></div>
+</div>  <!-- wrapper -->
+</body>
 </html>
 

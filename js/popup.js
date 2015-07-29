@@ -1,130 +1,161 @@
-// Copyright (c) 2014 The Chromium Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file.
-
-/**
- * Get the current URL.
- *
- * @param {function(string)} callback - called when the URL of the current tab
- *   is found.
- **/
-function getCurrentTabUrl(callback) {
-	// Query filter to be passed to chrome.tabs.query - see
-	// https://developer.chrome.com/extensions/tabs#method-query
-	var queryInfo = {
-		active: true,
-		currentWindow: true
-	};
-
-	chrome.tabs.query(queryInfo, function(tabs) {
-		// chrome.tabs.query invokes the callback with a list of tabs that match the
-		// query. When the popup is opened, there is certainly a window and at least
-		// one tab, so we can safely assume that |tabs| is a non-empty array.
-		// A window can only have one active tab at a time, so the array consists of
-		// exactly one tab.
-		var tab = tabs[0];
-
-		// A tab is a plain object that provides information about the tab.
-		// See https://developer.chrome.com/extensions/tabs#type-Tab
-		var url = tab.url;
-
-		// tab.url is only available if the "activeTab" permission is declared.
-		// If you want to see the URL of other tabs (e.g. after removing active:true
-		// from |queryInfo|), then the "tabs" permission is required to see their
-		// "url" properties.
-		console.assert(typeof url == 'string', 'tab.url should be a string');
-
-		callback(url);
-	});
-
-	// Most methods of the Chrome extension APIs are asynchronous. This means that
-	// you CANNOT do something like this:
-	//
-	// var url;
-	// chrome.tabs.query(queryInfo, function(tabs) {
-	//   url = tabs[0].url;
-	// });
-	// alert(url); // Shows "undefined", because chrome.tabs.query is async.
-}
-
-/**
- * @param {string} searchTerm - Search term for Google Image search.
- * @param {function(string,number,number)} callback - Called when an image has
- *   been found. The callback gets the URL, width and height of the image.
- * @param {function(string)} errorCallback - Called when the image is not found.
- *   The callback gets a string that describes the failure reason.
- */
-function getImageUrl(searchTerm, callback, errorCallback) {
-	// Google image search - 100 searches per day.
-	// https://developers.google.com/image-search/
-	var searchUrl = 'https://ajax.googleapis.com/ajax/services/search/images' +
-		'?v=1.0&q=' + encodeURIComponent(searchTerm);
-	var x = new XMLHttpRequest();
-	x.open('GET', searchUrl);
-	// The Google image search API responds with JSON, so let Chrome parse it.
-	x.responseType = 'json';
-	x.onload = function() {
-		// Parse and process the response from Google Image Search.
-		var response = x.response;
-		if (!response || !response.responseData || !response.responseData.results ||
-				response.responseData.results.length === 0) {
-			errorCallback('No response from Google Image search!');
-			return;
-		}
-		var firstResult = response.responseData.results[0];
-		// Take the thumbnail instead of the full image to get an approximately
-		// consistent image size.
-		var imageUrl = firstResult.tbUrl;
-		var width = parseInt(firstResult.tbWidth);
-		var height = parseInt(firstResult.tbHeight);
-		console.assert(
-				typeof imageUrl == 'string' && !isNaN(width) && !isNaN(height),
-				'Unexpected respose from the Google Image Search API!');
-		callback(imageUrl, width, height);
-	};
-	x.onerror = function() {
-		errorCallback('Network error.');
-	};
-	x.send();
-}
-
-function renderStatus(statusText) {
-	document.getElementById('status').textContent = statusText;
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-	getCurrentTabUrl(function(url) {
-		// Put the image URL in Google search.
-		renderStatus('Performing Google Image search for ' + url);
-
-		getImageUrl(url, function(imageUrl, width, height) {
-
-			renderStatus('Search term: ' + url + '\n' +
-				'Google image search result: ' + imageUrl);
-			var imageResult = document.getElementById('image-result');
-			// Explicitly set the width/height to minimize the number of reflows. For
-			// a single image, this does not matter, but if you're going to embed
-			// multiple external images in your page, then the absence of width/height
-			// attributes causes the popup to resize multiple times.
-			imageResult.width = width;
-			imageResult.height = height;
-			imageResult.src = imageUrl;
-			imageResult.hidden = false;
-
-		}, function(errorMessage) {
-			renderStatus('Cannot display image. ' + errorMessage);
-		});
-	});
-});
-
 /*
-chrome.tabs.getSelected(null, function(tab) {
-	chrome.tabs.sendRequest(tab.id, {method: "getText"}, function(response) {
-		if(response.method=="getText"){
-			alltext = response.data;
-			console.log(response.data);
-		}
-	});
+ * Copyright (C) 2012 - 2014  Bo Zhu  http://zhuzhu.org
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*jslint browser: true */
+/*global $: false, chrome: false, ga_report_event: false */
+
+function set_i18n_text() {
+    "use strict";
+    var get_msg = chrome.i18n.getMessage;
+
+    $('div#mode_select strong').html(get_msg('mode_select'));
+
+    $('span.mode_lite_name').html(get_msg('mode_lite'));
+    $('span.mode_lite_desc').html(get_msg('mode_lite_description'));
+    $('span.mode_normal_name').html(get_msg('mode_normal'));
+    $('span.mode_normal_desc').html(get_msg('mode_normal_description'));
+    $('span.mode_redirect_name').html(get_msg('mode_redirect'));
+    $('span.mode_redirect_desc').html(get_msg('mode_redirect_description'));
+
+    $('div#help_text').html(get_msg('help'));
+    $('div#feedback').html(get_msg('feedback'));
+    $('div#rating').html(get_msg('rating'));
+    $('span#sharing_text').html(get_msg('sharing'));
+    
+    $('div#support_title strong').html(get_msg('support_title'));
+    $('span#support_checkbox_label').html(get_msg('support_checkbox_label'));
+}
+
+function is_flash_bug_fixed() {
+    return !!window.opera || navigator.userAgent.indexOf(' OPR/') >= 0 || parseInt(window.navigator.appVersion.match(/Chrome\/(\d+)\./)[1], 10) >= 38;
+}
+
+
+$(document).ready(function() {
+    "use strict";
+    set_i18n_text();
+
+    var background = chrome.extension.getBackgroundPage();
+
+    // set default button display
+    background.get_mode_name(function(current_mode_name) {
+        switch (current_mode_name) {
+            case 'lite':
+                $('label#lite').addClass('active');
+                break;
+            case 'redirect':
+                $('label#redirect').addClass('active');
+                break;
+            default:
+                $('label#normal').addClass('active');
+                break;
+        }
+
+        // append system info to the wufoo feedback link
+        // such as extension version, chrome version, and os type
+        var locale = navigator.language.substr(0, 2);
+        if (locale === 'en' || locale === 'zh') {
+            // jQuery.browser is not always accurate
+            var system_info = 'Unblock Youku ' + background.unblock_youku.version;
+            system_info += ' (' + current_mode_name + ', ' + locale + '); ';
+            system_info += navigator.userAgent;
+            console.log(system_info);
+            system_info = encodeURIComponent(system_info).replace(/%2F/g, '/');  // NOTICEME
+            console.log(system_info);
+
+            var feedback_url = $('#feedback a');
+            feedback_url.prop('href', feedback_url.prop('href') + '/def/field13=' + system_info);
+        }
+    });
+
+    // check whether the browser is Opera, or Chrome version >= 38, to get around Flash bug in Chrome
+    // https://github.com/zhuzhuor/Unblock-Youku/issues/209
+    if(!is_flash_bug_fixed()) {
+        $('#redirect').addClass('disabled');
+        $('#input_redirect').attr('disabled', true);
+
+        // $('#buttons').tooltip({html: true, title: chrome.i18n.getMessage('mode_redirect_disabled')});
+        // $('#input_redirect').tooltip({html: true, title: chrome.i18n.getMessage('mode_redirect_disabled')});
+        $('.mode_redirect_desc').parents('tr').addClass('text-muted').tooltip({html: true, title: chrome.i18n.getMessage('mode_redirect_disabled')});
+
+        // if current mode is redirect, change to normal mode
+        background.get_mode_name(function(current_mode_name) {
+            if(current_mode_name === 'redirect') {
+                $('#normal').click();
+            }
+        });
+    }
+
+    var pre_heart_icon = '<i class="fa fa-heart" style="color: PaleVioletRed;"></i>&nbsp;';
+
+    background.get_storage('support_us', function(option) {
+        if (option === 'yes') {
+            $('#support_checkbox input').prop('checked', true);
+            $('div#support_message').html(pre_heart_icon + chrome.i18n.getMessage('support_message_yes'));
+        } else {
+            $('#support_checkbox input').prop('checked', false);
+            $('div#support_message').html(chrome.i18n.getMessage('support_message_no'));
+        }
+    });
+
+    $('#support_checkbox input').click(function() {
+        if ($('#support_checkbox input').prop('checked')) {
+            background.set_storage('support_us', 'yes', function() {
+                $('div#support_message').html(pre_heart_icon + chrome.i18n.getMessage('support_message_yes'));
+                console.log('change to support us');
+                ga_report_event('Change Support', 'Yes');
+            });
+        } else {
+            background.set_storage('support_us', 'no', function() {
+                $('div#support_message').html(chrome.i18n.getMessage('support_message_no'));
+                console.log('change to not support us');
+                ga_report_event('Change Support', 'No');
+            });
+        }
+    });
+
+    chrome.browserAction.setBadgeText({text: ''});  // clear the text NEW
+    background.get_storage('previous_new_version', function(version) {
+        if (typeof version === 'undefined' || version !== background.unblock_youku.lastest_new_version) {
+            background.set_storage('previous_new_version', background.unblock_youku.lastest_new_version);
+        }
+    });
+
+    // $('div#version').html('Unblock Youku </i> ' + background.unblock_youku.version);
+
+    // button actions
+    $('input#input_lite').change(function() {
+        console.log('to change mode to lite');
+        background.change_mode('lite');
+    });
+    $('input#input_normal').change(function() {
+        console.log('to change mode to normal');
+        background.change_mode('normal');
+    });
+    $('input#input_redirect').change(function() {
+        console.log('to change mode to redirect');
+        background.change_mode('redirect');
+    });
+	
+    var my_date = new Date();
+    if (typeof localStorage.first_time === 'undefined') {
+        localStorage.first_time = my_date.getTime();
+    } else if (my_date.getTime() > parseInt(localStorage.first_time, 10) + 1000 * 60 * 60 * 24 * 3) {
+        $('div#rating').show(); // delay 3 days for the rating div to show up, hahaha
+    }
 });
 
-*/

@@ -6,8 +6,8 @@
 function CloakingChecker() {
     this.whitelist = new CheckingSet("res/whitelist.json");
     this.blacklist = new CheckingSet("res/blacklist.json");
-    this.cookieset = new CookieSet();
-
+    this.cookieSet = new CookieSet();
+    this.visibleHostCache = new HostCache();
     this.textThreshold = 4;
     this.domThreshold = 5;
 }
@@ -22,13 +22,14 @@ CloakingChecker.prototype.checkCloaking = function (verdict) {
      * Args:
      *  verdict: read the url and simhash property, and set the result.
      *      url: the url to check
+     *      hostname: the hostname corresponding to url
      *      pageHash: the summary of what user sees
-     *      domain: the domain corresponding to url
      */
     console.log("I am doing a background request and computing the decision here.");
 
     /* Fetches url with crawler user agent in the background.
      */
+    var parent = this;
     var xhr = new XMLHttpRequest();
     /* TODO: Do we also need to run on POST?
      * What does search and ads queries use, POST or GET
@@ -43,19 +44,17 @@ CloakingChecker.prototype.checkCloaking = function (verdict) {
             // http://stackoverflow.com/questions/494143/creating-a-new-dom-element-from-an-html-string-using-built-in-dom-methods-or-pro
             // replace html
             console.log("Fetching spider copy");
-            console.log("cookieset size");
-            console.log(this.cookieset);
-            console.log(Object.keys(this.cookieset).length);
-            var hasCookie = this.cookieset.contains(verdict.domain);
+            var hasCookie = this.cookieSet.contains(verdict.hostname);
             var hasLogin = HelperFunctions.hasLogin(xhr.responseText);
 
             if (hasCookie && hasLogin) {
                 /* If current page is login page and user has visited it before, then probably user vs. spider will be
                  * different, e.g. Facebook.
                  */
-                console.log("If a page has cookie and is has login words, then we skip it. This may have introduce" +
-                    " false negative");
-                verdict.setResult(false);
+                var reason = "Since this page has cookie and spider copy has login words, we skip it. This may" +
+                    " introduce false negative.";
+                console.log(reason);
+                verdict.setResult(false, reason);
             } else {
                 /* If it is not login page, then compute simhash and return verdict.
                  */
@@ -69,22 +68,23 @@ CloakingChecker.prototype.checkCloaking = function (verdict) {
                 var domDist = verdict.pageHash.dom.hammingDistance(verdict.spiderPageHash[0].dom);
 
                 if (textDist > this.textThreshold && domDist > this.domThreshold) {
-                    verdict.setResult(true);
+                    var reason = "User copy and browser copy are significantly different.";
+                    verdict.setResult(true, reason);
                 } else {
-                    verdict.setResult(false);
+                    var reason = "User copy and browser copy are similar.";
+                    verdict.setResult(false, reason);
                 }
             }
             console.log(verdict);
             chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {
-                chrome.tabs.sendMessage(tabs[0].id, {url: verdict.url, result: verdict.result}, null);
+                chrome.tabs.sendMessage(tabs[0].id, {message: JSON.stringify(verdict)}, null);
             });
 
             // when everything is done, we want to update the cookie table.
             if (!hasCookie) {
-                var parent = this;
-                parent.cookieset.hasCookieForDomain(verdict.domain, function(cookieCount) {
+                parent.cookieSet.hasCookieForDomain(verdict.hostname, function (cookieCount) {
                     if (cookieCount > 0) {
-                        parent.cookieset.update(domain, cookieCount);
+                        parent.cookieSet.update(verdict.hostname, cookieCount);
                     }
                 });
             }
@@ -93,24 +93,35 @@ CloakingChecker.prototype.checkCloaking = function (verdict) {
     xhr.send();
 }
 
-CloakingChecker.prototype.cloakingVerdict = function (url, pageHash, host, sendResponse) {
+CloakingChecker.prototype.cloakingVerdict = function (request, tabId, sendResponse) {
+    var url = request.url;
+    var host = request.hostname;
+    var pageHash = request.pageHash;
     if (pageHash != null) {
-        var ph = new PageHash(new SimhashItem(pageHash.text), new SimhashItem(pageHash.dom));
-        var v = new Verdict(url, ph, host);
+        // PageHash contains function that we want to use, initialize it.
+        pageHash = new PageHash(new SimhashItem(pageHash.text.value), new SimhashItem(pageHash.dom.value));
+        var v = new Verdict(url, host, pageHash);
         // If we are requesting with pageHash set, the response is going to be sent back using message.
         this.checkCloaking(v);
     } else {
-        var v = new Verdict(url, pageHash);
-        if (this.whitelist.contains(url)) {
-            v.setResult(false);
+        var v = new Verdict(url, host, null);
+        var hostResult = this.visibleHostCache.matchesHost(tabId, host);
+        if (hostResult.result) {
+            var reason = "Visible hostname and landing hostname are different, this is redirect cloaking. Visible" +
+                " host is: " + hostResult.visibleHost + ", landing hostname is: " + hostResult.landingHost;
+            v.setResult(true, reason);
+        } else if (this.whitelist.contains(url)) {
+            var reason = "In whitelist.";
+            v.setResult(false, reason);
         } else if (this.blacklist.contains(url)) {
-            v.setResult(true);
+            var reason = "In blacklist.";
+            v.setResult(true, reason);
         } else {
             // else do nothing and return
-            v.setResult(null);
+            v.setResult(null, null);
         }
         // Send response back to the content script
-        sendResponse({url: v.url, result: v.result});
+        sendResponse(v);
     }
 };
 
@@ -155,8 +166,14 @@ checker.setRequestUserAgent(Contants.googleSearchBotUA);
 // Listen for message from each tab
 chrome.runtime.onMessage.addListener(
     function (request, sender, sendResponse) {
+        request = JSON.parse(request.message);
         console.log("request is ", request);
-        checker.cloakingVerdict(request.url, request.pageHash, request.host, sendResponse);
+        if (request.from == MessageContants.FromSearchPage) {
+            console.log("clicked a link to visible url ", request.url);
+            checker.visibleHostCache.setVisibleHostCache(request.url, sender.tab.id);
+        } else if (request.from == MessageContants.FromLandingPage) {
+            checker.cloakingVerdict(request, sender.tab.id, sendResponse);
+        }
     }
 );
 
