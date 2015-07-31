@@ -110,7 +110,6 @@ SimhashComputer.prototype.buildByFeatures = function (features) {
 SimhashComputer.prototype.getTextSimhash = function (rawText) {
     //get visible text
     var textArr = HelperFunctions.nonempty(rawText.split(/[^A-Za-z0-9]/));
-    var text = textArr.toString();
 
     var textSet = HelperFunctions.uniq(textArr);
     var bigram = HelperFunctions.ngram(textArr, 2);

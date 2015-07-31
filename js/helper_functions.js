@@ -151,20 +151,32 @@ var HelperFunctions = {
         return false;
     },
     parseHostFromUrl: function (url) {
-        var match = url.match(/:\/\/(www[0-9]?\.)?(.[^/:]+)/i);
-        if (match != null && match.length > 2 &&
-            typeof match[2] === 'string' && match[2].length > 0) {
-            return match[2];
+        // var match = url.match(/:\/\/(www[0-9]?\.)?(.[^/:]+)/i);
+        var match = url.match(/:\/\/([^/:]+)/i);
+        if (match != null && match.length > 1 &&
+            typeof match[1] === 'string' && match[1].length > 0) {
+            return match[1];
         } else {
             return null;
         }
+    },
+    isErrorPage: function(htmlText) {
+        var title = htmlText.match(/<title>(.*?)<\/title>/m);
+        if (title) {
+            return (title[1].indexOf("Error 404") != -1);
+        } else {
+            return false;
+        }
+    },
+    removeSchemeFromUrl: function(url) {
+        return url.replace(/^https?:\/\//, "");
     }
 };
 
 // Constant values.
 var MessageContants = {
     FromSearchPage: "Search",
-    FromLandingPage: "Landing"
+    FromLandingPage: "Landing",
 };
 
 // An verdict for program to pass and check.
@@ -172,21 +184,12 @@ function Verdict(url, hostname, pageHash) {
     this.url = url;
     this.hostname = hostname || null;
     this.pageHash = pageHash || null;
-    this.spiderPageHash = [];
-    // distance is optional, we need this only if we are going to call checkCloaking
-    // this.distance = 0;
-    this.reason = "";
-    this.result = null;
-}
 
-// Message used by background script to transfer informatino to client.
-Verdict.prototype.setResult = function (result, reason) {
-    this.result = result;
-    this.reason = reason || "";
 }
 
 // Message used by content script to transfer information to background.
-function CSVerdictMsg(url, hostname, pageHash, from) {
+function CSVerdictMsg(url, hostname, pageHash, from, cacheUrl) {
     Verdict.call(this, url, hostname, pageHash);
     this.from = from;
+    this.cacheUrl = cacheUrl || null;
 }

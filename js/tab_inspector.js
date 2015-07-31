@@ -20,10 +20,15 @@ var tabURL = window.location.href;
 console.log(tabURL);
 if (HelperFunctions.searchResultPage(tabURL)) {
     // If current page is search result page, add onclick event for all the search results and search ads
+    /*
     console.log($(".g h3 a").length);
     $(".g h3 a").each(function () {
         console.log($(this).attr("href"));
+        console.log();
+        var googleCacheUrl = $(this).closest(".g").find(".ab_dropdownitem").first().attr("href");
+        console.log(googleCacheUrl);
     });
+    */
 
     $(".ads-ad").click(function(event) {
         var visibleUrl = $(this).find(".ads-visurl cite").text();
@@ -32,11 +37,13 @@ if (HelperFunctions.searchResultPage(tabURL)) {
     });
     $(".g h3 a").click(function(event) {
         var visibleUrl = $(this).attr("data-href");
-        var msg = new CSVerdictMsg(visibleUrl, null, null, MessageContants.FromSearchPage);
+        var googleCacheUrl = $(this).closest(".g").find("li.action-menu-item.ab_dropdownitem").first().find("a").attr("href");
+        var msg = new CSVerdictMsg(visibleUrl, null, null, MessageContants.FromSearchPage, googleCacheUrl);
         chrome.runtime.sendMessage({message: JSON.stringify(msg)}, null);
     });
 }
 else if (HelperFunctions.interestingPage(tabHost, refererHost)) {
+    // TODO: Should we check status code in content script, too?
     // If current page is redirected from google.com, take a look at it.
     console.log("Came from " + refererHost + " and current site is " + tabHost);
 

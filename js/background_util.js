@@ -5,7 +5,9 @@
 // Constant values.
 var Contants = {
     googleSearchBotUA: "Googlebot/2.1 (+http://www.google.com/bot.html)",
-    googleAdBotUA: "AdsBot-Google (+http://www.google.com/adsbot.html)"
+    googleAdBotUA: "AdsBot-Google (+http://www.google.com/adsbot.html)",
+    // We found that only one copy is useful. Because the page rarely changes in a short period.
+    fetchKSpiderCopies: 1,
 };
 
 // The black list and white list
@@ -127,29 +129,75 @@ function HistorySet() {
     this.ready = false;
 }
 
-function HostCache() {
+function BGCache() {
     var cache = {};
 
-    this.setVisibleHostCache = function (host, tabId) {
-        cache[tabId] = host;
+    this.setValue = function (value, tabId) {
+        cache[tabId] = value;
     };
 
-    this.setVisibleHostCacheFromUrl = function (url, tabId) {
-        this.setVisibleHostCache(HelperFunctions.parseHostFromUrl(url), tabId);
+    this.setDomainValueFromUrl = function (url, tabId) {
+        this.setValue(HelperFunctions.parseHostFromUrl(url), tabId);
     };
 
-    this.fetchVisibleHostCache = function (tabId) {
+    this.popValue = function (tabId) {
         if (cache.hasOwnProperty(tabId)) {
-            var host = cache[tabId];
+            var value = cache[tabId];
             delete cache[tabId];
-            return host;
+            return value;
         } else {
             return null;
         }
     };
 
-    this.matchesHost = function (tabId, host) {
-        var cacheHost = this.fetchVisibleHostCache(tabId);
-        return {result: cacheHost && cacheHost == host, visibleHost: cacheHost, landingHost: host};
+    this.hitAndMismatch = function (tabId, host) {
+        /* Check whether cached host of current tab, matched the seen one.
+         *
+         * Args:
+         *  tabId: the id of tab
+         *  host: hostname of url
+         *
+         * Returns:
+         *  {result: boolean, value: host}, true if cache is hit and there is mismatch.
+         */
+        var value = this.popValue(tabId);
+        return {result: value && value != host, value: value};
     };
+}
+
+function BGVerdictMsg(url, hostname, pageHash, cacheUrl, kSpiderCopies) {
+    Verdict.call(this, url, hostname, pageHash);
+    this.cacheUrl = cacheUrl || null;
+    this.kSpiderCopies = kSpiderCopies || Contants.fetchKSpiderCopies;
+    this.spiderPageHash = [];
+    // distance is optional, we need this only if we are going to call checkCloaking
+    // this.distance = 0;
+    this.reason = "";
+    this.result = null;
+}
+
+BGVerdictMsg.prototype.addSpiderPageHash = function(pageHash) {
+    this.spiderPageHash.push(pageHash);
+}
+
+BGVerdictMsg.prototype.fetchComplete = function() {
+    if (this.spiderPageHash.length < this.kSpiderCopies) {
+        return false;
+    } else {
+        return true;
+    }
+}
+
+BGVerdictMsg.prototype.fetchAlmostComplete = function () {
+    if (this.spiderPageHash.length == this.kSpiderCopies - 1) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+// Message used by background script to transfer informatino to client.
+BGVerdictMsg.prototype.setResult = function (result, reason) {
+    this.result = result;
+    this.reason = reason || "";
 }
