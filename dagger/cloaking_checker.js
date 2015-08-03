@@ -48,7 +48,7 @@ CloakingChecker.prototype.cacheUrlCheckCloaking = function (verdict) {
                 // html -> dom object
                 console.log("Fetching spider copy");
                 if (HelperFunctions.isErrorPage(xhr.responseText)) {
-                    this.kCheckClokaing(verdict);
+                    this.kCheckCloaking(verdict);
                     return;
                 }
 
@@ -84,7 +84,7 @@ CloakingChecker.prototype.cacheUrlCheckCloaking = function (verdict) {
                 }
             } else {
                 // Fallback check of cacheUrlCheckCloaking
-                this.kCheckClokaing(verdict);
+                this.kCheckCloaking(verdict);
                 return;
             }
         }
@@ -118,7 +118,7 @@ CloakingChecker.prototype.handleFetchComplete = function (verdict) {
     });
 };
 
-CloakingChecker.prototype.kCheckClokaing = function (verdict) {
+CloakingChecker.prototype.kCheckCloaking = function (verdict) {
     // Similar to checkCloaking, but fetches k spider copies
     console.log("I am doing a background request and computing the decision here.");
     /* Optional google search cache result fetch.
@@ -239,7 +239,7 @@ CloakingChecker.prototype.cloakingVerdict = function (request, tabId, sendRespon
         } else {
             var v = new BGVerdictMsg(url, host, pageHash);
             // If we are requesting with pageHash set, the response is going to be sent back using message.
-            this.kCheckClokaing(v);
+            this.kCheckCloaking(v);
         }
     } else {
         var v = new BGVerdictMsg(url, host);

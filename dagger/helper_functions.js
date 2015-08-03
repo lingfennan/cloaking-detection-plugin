@@ -102,15 +102,17 @@ var HelperFunctions = {
     },
     interestingPage: function (tabHost, refererHost) {
         // A page is an interesting page, if it is not google.com and is redirected from google.com.
-        return refererHost && refererHost.match(/^https?:\/\/([^\/]+\.)?google\.com(\/|$)/i) &&
-            !(tabHost.match(/google\.com/i));
+        return refererHost && refererHost.match(/^https?:\/\/([^\/]+\.)?google\.com(\/|$)/i) && !(tabHost.match(/google\.com/i));
+    },
+    searchResultPage: function (url) {
+        return url.match(/^https:\/\/www\.google\.com\/#q/i) || url.match(/^https:\/\/www\.google\.com\/search/i);
     },
     alertIfCloaking: function (response) {
         console.log("In alertIfCloaking");
         console.log(response.url);
         console.log(response.result);
         if (response.result == true) {
-            alert("This page is potentially cloaking!");
+            alert("This page is potentially cloaking! Because " + response.reason);
         }
     },
     getHexRepresentation: function (num, symbols) {
@@ -135,5 +137,59 @@ var HelperFunctions = {
             num >>= 4;
         }
         return result;
+    },
+    hasLogin: function (text) {
+        var loginArray = ["login", "log in", "LogIn", "Log In", "LOGIN", "LOG IN", "iniciar sesión", "s'identifier",
+            "Einloggen", "ログイン", "로그인", "登陆"];
+        var len = loginArray.length;
+        while (len--) {
+            if (text.indexOf(loginArray[len]) != -1) {
+                // one of the sub-strings is in yourstring
+                return true;
+            }
+        }
+        return false;
+    },
+    parseHostFromUrl: function (url) {
+        // var match = url.match(/:\/\/(www[0-9]?\.)?(.[^/:]+)/i);
+        var match = url.match(/:\/\/([^/:]+)/i);
+        if (match != null && match.length > 1 &&
+            typeof match[1] === 'string' && match[1].length > 0) {
+            return match[1];
+        } else {
+            return null;
+        }
+    },
+    isErrorPage: function(htmlText) {
+        var title = htmlText.match(/<title>(.*?)<\/title>/m);
+        if (title) {
+            return (title[1].indexOf("Error 404") != -1);
+        } else {
+            return false;
+        }
+    },
+    removeSchemeFromUrl: function(url) {
+        return url.replace(/^https?:\/\//, "");
     }
 };
+
+// Constant values.
+var MessageContants = {
+    FromSearchPage: "Search",
+    FromLandingPage: "Landing",
+};
+
+// An verdict for program to pass and check.
+function Verdict(url, hostname, pageHash) {
+    this.url = url;
+    this.hostname = hostname || null;
+    this.pageHash = pageHash || null;
+
+}
+
+// Message used by content script to transfer information to background.
+function CSVerdictMsg(url, hostname, pageHash, from, cacheUrl) {
+    Verdict.call(this, url, hostname, pageHash);
+    this.from = from;
+    this.cacheUrl = cacheUrl || null;
+}
