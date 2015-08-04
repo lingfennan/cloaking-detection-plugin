@@ -10,7 +10,7 @@ function CloakingChecker() {
     this.visibleHostCache = new BGCache();
     this.cacheUrlCache = new BGCache();
     // mode set by the user, default to online
-    this.cloakerCatcherMode = "online";
+    this.cloakerCatcherMode = Contants.modeOnline;
     // parameters from the paper
     this.textRadius = 15;
     this.domRadius = 13;
@@ -20,9 +20,29 @@ function CloakingChecker() {
 
 CloakingChecker.prototype.getModeName = function () {
     return this.cloakerCatcherMode;
-}
+};
 
-CloakingChecker.prototype.cacheUrlCheckCloaking = function (verdict) {
+CloakingChecker.prototype.getModelAndCompare = function (url, pageHash) {
+    var parent = this;
+    var xhr = new XMLHttpRequest();
+    var params = url;
+    xhr.open('POST', Contants.serverAddress, true);
+    xhr.onreadystatechange = function () {
+        // Get the model returned by server and compute decision.
+
+    };
+    xhr.send(params);
+};
+
+CloakingChecker.prototype.cacheUrlCheckCloakingOnline = function (verdict) {
+    this.getModelAndCompare(verdict.cacheUrl, verdict.pageHash);
+};
+
+CloakingChecker.prototype.visibleUrlCheckCloakingOnline = function (verdict) {
+    this.getModelAndCompare(verdict.url, verdict.pageHash);
+};
+
+CloakingChecker.prototype.cacheUrlCheckCloakingOffline = function (verdict) {
     /*
      * Compare what user sees with with spider copy, return whether it is cloaking or not
      * 1. make a request with spider user agent
@@ -54,7 +74,7 @@ CloakingChecker.prototype.cacheUrlCheckCloaking = function (verdict) {
                 // html -> dom object
                 console.log("Fetching spider copy");
                 if (HelperFunctions.isErrorPage(xhr.responseText)) {
-                    this.kCheckCloaking(verdict);
+                    this.visibleUrlCheckCloakingOffline(verdict);
                     return;
                 }
 
@@ -90,7 +110,7 @@ CloakingChecker.prototype.cacheUrlCheckCloaking = function (verdict) {
                 }
             } else {
                 // Fallback check of cacheUrlCheckCloaking
-                this.kCheckCloaking(verdict);
+                this.visibleUrlCheckCloakingOffline(verdict);
                 return;
             }
         }
@@ -124,7 +144,7 @@ CloakingChecker.prototype.handleFetchComplete = function (verdict) {
     });
 };
 
-CloakingChecker.prototype.kCheckCloaking = function (verdict) {
+CloakingChecker.prototype.visibleUrlCheckCloakingOffline = function (verdict) {
     // Similar to checkCloaking, but fetches k spider copies
     console.log("I am doing a background request and computing the decision here.");
     /* Optional google search cache result fetch.
@@ -230,29 +250,51 @@ CloakingChecker.prototype.kCheckCloaking = function (verdict) {
 };
 
 CloakingChecker.prototype.cloakingVerdict = function (request, tabId, sendResponse) {
+    /* Generate verdict for the given request.
+     *
+     * 1. if mode is unguarded, always return false.
+     * 2. if mode is offline, request a spider copy if necessary.
+     * 3. if mode is online, contact server for the Simhash-based Website Model if necessary.
+     */
     var url = request.url;
     var host = request.hostname;
     var pageHash = request.pageHash;
+
+    /* Get the selected mode. */
+    var mode = this.getModeName();
+    // If mode is unguarded.
+    if (mode == Contants.modeUnguarded) {
+        var v = new BGVerdictMsg(url, host);
+        var reason = "Mode Unguarded.";
+        v.setResult(false, reason);
+        sendResponse(v);
+        return;
+    }
+    /* If mode is offline or online. */
     if (pageHash != null) {
         // PageHash contains function that we want to use, initialize it.
         pageHash = new PageHash(new SimhashItem(pageHash.text.value), new SimhashItem(pageHash.dom.value));
-
-        if (this.cloakerCatcherMode == "onilne") {
-
-        } else if (this.cloakerCatcherMode == "offline") {
-            // If google search provides link to their cache, we fetch that copy.
-            var cacheUrl = this.cacheUrlCache.popValue(tabId);
-            if (cacheUrl && cacheUrl.indexOf(HelperFunctions.removeSchemeFromUrl(url)) != -1) {
-                var v = new BGVerdictMsg(url, host, pageHash, cacheUrl);
-                // Use cached url to fetch spider copy.
-                this.cacheUrlCheckCloaking(v);
-            } else {
-                var v = new BGVerdictMsg(url, host, pageHash);
-                // If we are requesting with pageHash set, the response is going to be sent back using message.
-                this.kCheckCloaking(v);
+        // If google search provides link to their cache, we fetch that copy.
+        var cacheUrl = this.cacheUrlCache.popValue(tabId);
+        if (cacheUrl && cacheUrl.indexOf(HelperFunctions.removeSchemeFromUrl(url)) != -1) {
+            var v = new BGVerdictMsg(url, host, pageHash, cacheUrl);
+            // Use cached url to fetch spider copy.
+            if (mode == Contants.modeOnline) {
+                this.cacheUrlCheckCloakingOnline(v);
+            } else if (mode == Contants.modeOffline) {
+                this.cacheUrlCheckCloakingOffline(v);
+            }
+        } else {
+            var v = new BGVerdictMsg(url, host, pageHash);
+            // If we are requesting with pageHash set, the response is going to be sent back using message.
+            if (mode == Contants.modeOnline) {
+                this.visibleUrlCheckCloakingOnline(v);
+            } else if (mode == Contants.modeOffline) {
+                this.visibleUrlCheckCloakingOffline(v);
             }
         }
     } else {
+        /* Light-weight checking is the same for both offline and online mode. */
         var v = new BGVerdictMsg(url, host);
         var hostResult = this.visibleHostCache.hitAndMismatch(tabId, host);
         if (hostResult.result) {

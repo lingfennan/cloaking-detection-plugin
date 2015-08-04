@@ -8,6 +8,12 @@ var Contants = {
     googleAdBotUA: "AdsBot-Google (+http://www.google.com/adsbot.html)",
     // We found that only one copy is useful. Because the page rarely changes in a short period.
     fetchKSpiderCopies: 1,
+    // Mode used in cloaking_checker.
+    modeOnline: "online",
+    modeOffline: "offline",
+    modeUnguarded: "unguarded",
+    // Remote server URL for online mode
+    serverAddress: "http://moon.gtisc.gatech.edu:8000"
 };
 
 // The black list and white list

@@ -79,10 +79,20 @@ SimhashComputer.prototype.buildByFeatures = function (features) {
         masks.push((1 << i) >>> 0);
     }
     // compute vector
+    /* Since MD5 is 128 bit, and we are only using 64 bit. To be consistent with the server side, we take the lower
+     * 64-bit (refer to https://github.com/liangsun/simhash for server side implementation).
+     *
+     * MD5 hash:
+     * 0......0, 1......1, 0......0, 1......1
+     * word[0]   word[1]   word[2]   word[3]
+     *
+     * Use word[2] and word[3].
+     */
+    var wordTotal = 4;
     for (var h in hashs) {
         for (var w = 0; w < range / wordSize; w++) {
             for (var i = 0; i < wordSize; i++) {
-                if (hashs[h].words[w] & masks[i]) vec[i + w * wordSize] += 1;
+                if (hashs[h].words[wordTotal - w - 1] & masks[i]) vec[i + w * wordSize] += 1;
                 else vec[i + w * wordSize] -= 1;
             }
         }

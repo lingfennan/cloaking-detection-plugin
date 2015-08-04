@@ -16,7 +16,7 @@ function CloakingChecker() {
     this.domSigmaThreshold = 1.8;
 }
 
-CloakingChecker.prototype.cacheUrlCheckCloaking = function (verdict) {
+CloakingChecker.prototype.cacheUrlCheckCloakingOffline = function (verdict) {
     /*
      * Compare what user sees with with spider copy, return whether it is cloaking or not
      * 1. make a request with spider user agent
@@ -48,7 +48,7 @@ CloakingChecker.prototype.cacheUrlCheckCloaking = function (verdict) {
                 // html -> dom object
                 console.log("Fetching spider copy");
                 if (HelperFunctions.isErrorPage(xhr.responseText)) {
-                    this.kCheckCloaking(verdict);
+                    this.visibleUrlCheckCloakingOffline(verdict);
                     return;
                 }
 
@@ -84,7 +84,7 @@ CloakingChecker.prototype.cacheUrlCheckCloaking = function (verdict) {
                 }
             } else {
                 // Fallback check of cacheUrlCheckCloaking
-                this.kCheckCloaking(verdict);
+                this.visibleUrlCheckCloakingOffline(verdict);
                 return;
             }
         }
@@ -118,7 +118,7 @@ CloakingChecker.prototype.handleFetchComplete = function (verdict) {
     });
 };
 
-CloakingChecker.prototype.kCheckCloaking = function (verdict) {
+CloakingChecker.prototype.visibleUrlCheckCloakingOffline = function (verdict) {
     // Similar to checkCloaking, but fetches k spider copies
     console.log("I am doing a background request and computing the decision here.");
     /* Optional google search cache result fetch.
@@ -235,11 +235,11 @@ CloakingChecker.prototype.cloakingVerdict = function (request, tabId, sendRespon
         if (cacheUrl && cacheUrl.indexOf(HelperFunctions.removeSchemeFromUrl(url)) != -1) {
             var v = new BGVerdictMsg(url, host, pageHash, cacheUrl);
             // Use cached url to fetch spider copy.
-            this.cacheUrlCheckCloaking(v);
+            this.cacheUrlCheckCloakingOffline(v);
         } else {
             var v = new BGVerdictMsg(url, host, pageHash);
             // If we are requesting with pageHash set, the response is going to be sent back using message.
-            this.kCheckCloaking(v);
+            this.visibleUrlCheckCloakingOffline(v);
         }
     } else {
         var v = new BGVerdictMsg(url, host);
