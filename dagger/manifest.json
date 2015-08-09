@@ -14,11 +14,12 @@
   },
   "background": {
     "scripts": [
-      "md5.js",
+      "js/md5.js",
       "helper_functions.js",
       "simhash_computer.js",
       "background_util.js",
-      "cloaking_checker.js"
+      "cloaking_checker.js",
+      "js/config.js"
     ],
     "persistent": true
   },
@@ -38,13 +39,14 @@
         "https://*/*"
       ],
       "js": [
-        "jquery-2.1.3.min.js",
-        "md5.js",
+        "js/jquery-2.1.3.min.js",
+        "js/md5.js",
         "helper_functions.js",
         "simhash_computer.js",
         "tab_inspector.js"
       ],
       "run_at": "document_end"
     }
-  ]
+  ],
+  "default_locale": "en"
 }

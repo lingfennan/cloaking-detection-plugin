@@ -9,12 +9,38 @@ function CloakingChecker() {
     this.cookieSet = new CookieSet();
     this.visibleHostCache = new BGCache();
     this.cacheUrlCache = new BGCache();
+    // mode set by the user, default to online
+    this.cloakerCatcherMode = Contants.modeOnline;
     // parameters from the paper
     this.textRadius = 15;
     this.domRadius = 13;
     this.textSigmaThreshold = 2.1;
     this.domSigmaThreshold = 1.8;
 }
+
+CloakingChecker.prototype.getModeName = function () {
+    return this.cloakerCatcherMode;
+};
+
+CloakingChecker.prototype.getModelAndCompare = function (url, pageHash) {
+    var parent = this;
+    var xhr = new XMLHttpRequest();
+    var params = url;
+    xhr.open('POST', Contants.serverAddress, true);
+    xhr.onreadystatechange = function () {
+        // Get the textModels returned by server and compute decision.
+
+    };
+    xhr.send(params);
+};
+
+CloakingChecker.prototype.cacheUrlCheckCloakingOnline = function (verdict) {
+    this.getModelAndCompare(verdict.cacheUrl, verdict.pageHash);
+};
+
+CloakingChecker.prototype.visibleUrlCheckCloakingOnline = function (verdict) {
+    this.getModelAndCompare(verdict.url, verdict.pageHash);
+};
 
 CloakingChecker.prototype.cacheUrlCheckCloakingOffline = function (verdict) {
     /*
@@ -71,7 +97,7 @@ CloakingChecker.prototype.cacheUrlCheckCloakingOffline = function (verdict) {
                 } else {
                     /* If it is not login page, then compute simhash and return verdict.
                      */
-                    this.handleResponseText(validResponseText, verdict);
+                    this.handleResponseTextOffline(validResponseText, verdict);
                     this.handleFetchComplete(verdict);
                 }
                 // when everything is done, we want to update the cookie table.
@@ -92,7 +118,7 @@ CloakingChecker.prototype.cacheUrlCheckCloakingOffline = function (verdict) {
     xhr.send();
 };
 
-CloakingChecker.prototype.handleResponseText = function (reponseText, verdict) {
+CloakingChecker.prototype.handleResponseTextOffline = function (reponseText, verdict) {
     // Called when content fetch is ready.
     var doc = new DOMParser().parseFromString(reponseText, "text/html");
     var sc = new SimhashComputer();
@@ -163,7 +189,7 @@ CloakingChecker.prototype.visibleUrlCheckCloakingOffline = function (verdict) {
                      * The program already fetched one copy.
                      */
                     if (verdict.fetchAlmostComplete()) {
-                        parent.handleResponseText(this.responseText, verdict);
+                        parent.handleResponseTextOffline(this.responseText, verdict);
                         if (verdict.fetchComplete()) {
                             parent.handleFetchComplete(verdict);
                         }
@@ -185,7 +211,7 @@ CloakingChecker.prototype.visibleUrlCheckCloakingOffline = function (verdict) {
                                     console.log("Fetching spider copy " + this.spiderId);
                                     // 1. compute simhash of the requested page
                                     // 2. compute the distance between spider copy and user copy and make a final decision.
-                                    parent.handleResponseText(this.responseText, verdict);
+                                    parent.handleResponseTextOffline(this.responseText, verdict);
                                     console.log("have processed N spiders " + verdict.spiderPageHash.length);
                                     console.log(verdict);
                                     if (verdict.fetchComplete()) {
@@ -196,7 +222,7 @@ CloakingChecker.prototype.visibleUrlCheckCloakingOffline = function (verdict) {
                             xhrArray[i].send();
                         }  // end for
                         // This is put after the for loop, because we don't want the computation to block other requests.
-                        parent.handleResponseText(this.responseText, verdict);
+                        parent.handleResponseTextOffline(this.responseText, verdict);
                         if (verdict.fetchComplete()) {
                             parent.handleFetchComplete(verdict);
                         }
@@ -224,9 +250,27 @@ CloakingChecker.prototype.visibleUrlCheckCloakingOffline = function (verdict) {
 };
 
 CloakingChecker.prototype.cloakingVerdict = function (request, tabId, sendResponse) {
+    /* Generate verdict for the given request.
+     *
+     * 1. if mode is unguarded, always return false.
+     * 2. if mode is offline, request a spider copy if necessary.
+     * 3. if mode is online, contact server for the Simhash-based Website Model if necessary.
+     */
     var url = request.url;
     var host = request.hostname;
     var pageHash = request.pageHash;
+
+    /* Get the selected mode. */
+    var mode = this.getModeName();
+    // If mode is unguarded.
+    if (mode == Contants.modeUnguarded) {
+        var v = new BGVerdictMsg(url, host);
+        var reason = "Mode Unguarded.";
+        v.setResult(false, reason);
+        sendResponse(v);
+        return;
+    }
+    /* If mode is offline or online. */
     if (pageHash != null) {
         // PageHash contains function that we want to use, initialize it.
         pageHash = new PageHash(new SimhashItem(pageHash.text.value), new SimhashItem(pageHash.dom.value));
@@ -235,13 +279,22 @@ CloakingChecker.prototype.cloakingVerdict = function (request, tabId, sendRespon
         if (cacheUrl && cacheUrl.indexOf(HelperFunctions.removeSchemeFromUrl(url)) != -1) {
             var v = new BGVerdictMsg(url, host, pageHash, cacheUrl);
             // Use cached url to fetch spider copy.
-            this.cacheUrlCheckCloakingOffline(v);
+            if (mode == Contants.modeOnline) {
+                this.cacheUrlCheckCloakingOnline(v);
+            } else if (mode == Contants.modeOffline) {
+                this.cacheUrlCheckCloakingOffline(v);
+            }
         } else {
             var v = new BGVerdictMsg(url, host, pageHash);
             // If we are requesting with pageHash set, the response is going to be sent back using message.
-            this.visibleUrlCheckCloakingOffline(v);
+            if (mode == Contants.modeOnline) {
+                this.visibleUrlCheckCloakingOnline(v);
+            } else if (mode == Contants.modeOffline) {
+                this.visibleUrlCheckCloakingOffline(v);
+            }
         }
     } else {
+        /* Light-weight checking is the same for both offline and online mode. */
         var v = new BGVerdictMsg(url, host);
         var hostResult = this.visibleHostCache.hitAndMismatch(tabId, host);
         if (hostResult.result) {
@@ -272,33 +325,42 @@ CloakingChecker.prototype.setRequestUserAgent = function (userAgent) {
      * http://stackoverflow.com/questions/21090733/changing-user-agent-in-xmlhttprequest-from-a-chrome-extension
      * http://stackoverflow.com/questions/10334909/associate-a-custom-user-agent-to-a-specific-google-chrome-page-tab/10339902#10339902
      */
-    console.log("Adding listener");
-    chrome.webRequest.onBeforeSendHeaders.addListener(
-        function (info) {
-            // Replace the User-Agent header
-            console.log("Changing headers before request!")
-            var headers = info.requestHeaders;
-            headers.forEach(function (header, i) {
-                if (header.name.toLowerCase() == 'user-agent') {
-                    header.value = userAgent;
-                }
-            });
-            return {requestHeaders: headers};
-        },
-        // Request filter
-        {
-            // Modify the headers for these pages
-            urls: [
-                "http://*/*",
-                "https://*/*",
-            ],
-            // In the main window and frames
-            types: ["xmlhttprequest"]
-        },
-        ["blocking", "requestHeaders"]
-    );
+    function header_modifier (info) {
+        // Replace the User-Agent header
+        console.log("Changing headers before request!")
+        var headers = info.requestHeaders;
+        headers.forEach(function (header, i) {
+            if (header.name.toLowerCase() == 'user-agent') {
+                header.value = userAgent;
+            }
+        });
+        return {requestHeaders: headers};
+    }
+
+    if (!chrome.webRequest.onBeforeSendHeaders.hasListener(header_modifier)) {
+        chrome.webRequest.onBeforeSendHeaders.addListener(
+            header_modifier,
+            // Request filter
+            {
+                // Modify the headers for these pages
+                urls: [
+                    "http://*/*",
+                    "https://*/*",
+                ],
+                // In the main window and frames
+                types: ["xmlhttprequest"]
+            },
+            ["blocking", "requestHeaders"]
+        );
+        console.log("header_modifier is set");
+    } else {
+        var err_msg = 'header_modifer is already there!';
+        console.error(err_msg);
+    }
 };
 
+// ----------- Initialization -----------
+// Global variable checker.
 var checker = new CloakingChecker();
 checker.setRequestUserAgent(Contants.googleSearchBotUA);
 

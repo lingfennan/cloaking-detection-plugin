@@ -16,30 +16,121 @@ function CloakingChecker() {
     this.domRadius = 13;
     this.textSigmaThreshold = 2.1;
     this.domSigmaThreshold = 1.8;
+    this.remoteUrl = "http://localhost:8000";
 }
 
 CloakingChecker.prototype.getModeName = function () {
     return this.cloakerCatcherMode;
 };
 
-CloakingChecker.prototype.getModelAndCompare = function (url, pageHash) {
+CloakingChecker.prototype.sendVerdictToCS = function(verdict) {
+    /*
+     * This function is used to send verdict to content script.
+     */
+    // TODO: Which tab should we send the information to
+    chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {
+        chrome.tabs.sendMessage(tabs[0].id, {message: JSON.stringify(verdict)}, null);
+    });
+}
+
+CloakingChecker.prototype.handleFetchComplete = function (verdict) {
+    /*
+     * Call this function when the result is not directly available and needs further computation.
+     */
+    if (this.getModeName() == Contants.modeOnline) {
+        // If any of the model matches, then we consider it match.
+        for (var model in verdict.textModels) {
+            var dist = model.modelDistance(verdict.pageHash.text);
+            if (model.matchesModel(dist, this.textRadius, this.textSigmaThreshold)) {
+                var reason = "User copy and browser copy matches.";
+                verdict.setResult(false, reason);
+                console.log(verdict);
+                this.sendVerdictToCS(verdict);
+                return;
+            }
+        }
+        for (var model in verdict.domModels) {
+            var dist = model.modelDistance(verdict.pageHash.dom);
+            if (mode.matchesModel(dist, this.domRadius, this.domSigmaThreshold)) {
+                var reason = "User copy and browser copy matches.";
+                verdict.setResult(false, reason);
+                console.log(verdict);
+                this.sendVerdictToCS(verdict);
+                return;
+            }
+        }
+        if (verdict.result == null) {
+            var reason = "User copy and browser copy are significantly different.";
+            verdict.setResult(true, reason);
+        }
+    } else if (this.getModeName() == Contants.modeOffline) {
+        var textDist = verdict.pageHash.text.hammingDistance(verdict.spiderPageHash[0].text);
+        var domDist = verdict.pageHash.dom.hammingDistance(verdict.spiderPageHash[0].dom);
+
+        if (textDist > this.textRadius && domDist > this.domRadius) {
+            var reason = "User copy and browser copy are significantly different.";
+            verdict.setResult(true, reason);
+        } else {
+            var reason = "User copy and browser copy are similar.";
+            verdict.setResult(false, reason);
+        }
+    }
+    console.log(verdict);
+    this.sendVerdictToCS(verdict);
+};
+
+CloakingChecker.prototype.getModelAndCompare = function (url, pageHash, verdict) {
+    /*
+     * Response have two types:
+     * 1. the server already knows about this website ( or doesn't know anything about this website, false)
+     * type == "result"
+     * 2. the server has collected multiple copies of the website and built textModels
+     * type == "model"
+     * {type: result,
+     *  result: true | false,
+     *  reason: 'some string'}
+     *  or
+     * {type: model,
+     *  text: [{volume, valueVector, std},
+     *         {...text pattern2...}
+     *        ],
+     *  dom: [{volume, valudVector, std},
+     *        {...dom pattern 2...}
+     *       ]
+     * }
+     */
     var parent = this;
     var xhr = new XMLHttpRequest();
-    var params = url;
+    var params = "url=" + this.remoteUrl;
     xhr.open('POST', Contants.serverAddress, true);
     xhr.onreadystatechange = function () {
-        // Get the model returned by server and compute decision.
-
+        // The server send back information in the format of JSON.
+        var response = JSON.parse(xhr.responseText);
+        if (response.type == Contants.serverResponseResult) {
+            // If the server already knows the result.
+            verdict.setResult(response.result, response.reason);
+            parent.sendVerdictToCS(verdict);
+        } else if (response.type == Contants.serverResponseModel) {
+            // If the server just have the text and dom models, the decision is left to user.
+            // Get the models returned by server and compute decision.
+            for (var model in response.text) {
+                verdict.addTextModel(new SWM(model.volume, model.valueVector, model.std));
+            }
+            for (var model in response.dom) {
+                verdict.addDomModel(new SWM(model.volume, model.valueVector, model.std));
+            }
+            parent.handleFetchComplete(verdict);
+        }
     };
     xhr.send(params);
 };
 
 CloakingChecker.prototype.cacheUrlCheckCloakingOnline = function (verdict) {
-    this.getModelAndCompare(verdict.cacheUrl, verdict.pageHash);
+    this.getModelAndCompare(verdict.cacheUrl, verdict.pageHash, verdict);
 };
 
 CloakingChecker.prototype.visibleUrlCheckCloakingOnline = function (verdict) {
-    this.getModelAndCompare(verdict.url, verdict.pageHash);
+    this.getModelAndCompare(verdict.url, verdict.pageHash, verdict);
 };
 
 CloakingChecker.prototype.cacheUrlCheckCloakingOffline = function (verdict) {
@@ -97,7 +188,7 @@ CloakingChecker.prototype.cacheUrlCheckCloakingOffline = function (verdict) {
                 } else {
                     /* If it is not login page, then compute simhash and return verdict.
                      */
-                    this.handleResponseText(validResponseText, verdict);
+                    this.handleResponseTextOffline(validResponseText, verdict);
                     this.handleFetchComplete(verdict);
                 }
                 // when everything is done, we want to update the cookie table.
@@ -118,30 +209,13 @@ CloakingChecker.prototype.cacheUrlCheckCloakingOffline = function (verdict) {
     xhr.send();
 };
 
-CloakingChecker.prototype.handleResponseText = function (reponseText, verdict) {
+CloakingChecker.prototype.handleResponseTextOffline = function (reponseText, verdict) {
     // Called when content fetch is ready.
     var doc = new DOMParser().parseFromString(reponseText, "text/html");
     var sc = new SimhashComputer();
     var ph = new PageHash(sc.getTextSimhash(doc.body.innerText),
         sc.getDomSimhash(doc.documentElement));
     verdict.spiderPageHash.push(ph);
-};
-
-CloakingChecker.prototype.handleFetchComplete = function (verdict) {
-    var textDist = verdict.pageHash.text.hammingDistance(verdict.spiderPageHash[0].text);
-    var domDist = verdict.pageHash.dom.hammingDistance(verdict.spiderPageHash[0].dom);
-
-    if (textDist > this.textRadius && domDist > this.domRadius) {
-        var reason = "User copy and browser copy are significantly different.";
-        verdict.setResult(true, reason);
-    } else {
-        var reason = "User copy and browser copy are similar.";
-        verdict.setResult(false, reason);
-    }
-    console.log(verdict);
-    chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {
-        chrome.tabs.sendMessage(tabs[0].id, {message: JSON.stringify(verdict)}, null);
-    });
 };
 
 CloakingChecker.prototype.visibleUrlCheckCloakingOffline = function (verdict) {
@@ -181,15 +255,13 @@ CloakingChecker.prototype.visibleUrlCheckCloakingOffline = function (verdict) {
                         " introduce false negative.";
                     console.log(reason);
                     verdict.setResult(false, reason);
-                    chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {
-                        chrome.tabs.sendMessage(tabs[0].id, {message: JSON.stringify(verdict)}, null);
-                    });
+                    this.sendVerdictToCS(verdict);
                 } else {
                     /* If it is not login page, then compute simhash and return verdict.
                      * The program already fetched one copy.
                      */
                     if (verdict.fetchAlmostComplete()) {
-                        parent.handleResponseText(this.responseText, verdict);
+                        parent.handleResponseTextOffline(this.responseText, verdict);
                         if (verdict.fetchComplete()) {
                             parent.handleFetchComplete(verdict);
                         }
@@ -211,7 +283,7 @@ CloakingChecker.prototype.visibleUrlCheckCloakingOffline = function (verdict) {
                                     console.log("Fetching spider copy " + this.spiderId);
                                     // 1. compute simhash of the requested page
                                     // 2. compute the distance between spider copy and user copy and make a final decision.
-                                    parent.handleResponseText(this.responseText, verdict);
+                                    parent.handleResponseTextOffline(this.responseText, verdict);
                                     console.log("have processed N spiders " + verdict.spiderPageHash.length);
                                     console.log(verdict);
                                     if (verdict.fetchComplete()) {
@@ -222,7 +294,7 @@ CloakingChecker.prototype.visibleUrlCheckCloakingOffline = function (verdict) {
                             xhrArray[i].send();
                         }  // end for
                         // This is put after the for loop, because we don't want the computation to block other requests.
-                        parent.handleResponseText(this.responseText, verdict);
+                        parent.handleResponseTextOffline(this.responseText, verdict);
                         if (verdict.fetchComplete()) {
                             parent.handleFetchComplete(verdict);
                         }
@@ -240,9 +312,7 @@ CloakingChecker.prototype.visibleUrlCheckCloakingOffline = function (verdict) {
             else {
                 var reason = "Status code is different. Spider get status: " + this.status;
                 verdict.setResult(true, reason);
-                chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {
-                    chrome.tabs.sendMessage(tabs[0].id, {message: JSON.stringify(verdict)}, null);
-                });
+                this.sendVerdictToCS(verdict);
             }
         }
     }.bind(xhrArray[0]);

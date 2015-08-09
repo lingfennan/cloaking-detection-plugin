@@ -50,6 +50,32 @@ SimhashItem.prototype.hammingDistance = function (itemB){
     return dist;
 }
 
+// Simhash website model
+function SWM (volume, valueVector, std) {
+    this.volume = volume;  // number of simhashs
+    this.valueVector = valueVector;  // 64 numbers
+    this.std = std;  // standard deviation
+    this.modelDistance = function (simhashItem) {
+        if (!simhashItem instanceof SimhashItem) {
+            return null;
+        }
+        var dist = 0;
+        var aStr = simhashItem.getValue(2);
+        for (var i = 0; i < aStr.length; i++) {
+            if (aStr[i] == '1') {
+                dist += this.volumne - this.valueVector[i];
+            } else {
+                dist += this.valueVector[i];
+            }
+        }
+        return dist * 1.0 / this.volume;
+    };
+    // This is method used to decide whether dist is in model.
+    this.matchesModel = function (dist, base, n) {
+        return dist < base + n * this.std ;
+    };
+}
+
 // The simhash computer
 function SimhashComputer() {
     this.hashsize = 64;

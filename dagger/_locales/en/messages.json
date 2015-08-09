@@ -1,0 +1,29 @@
+{
+  "description": {
+    "message": "Detect whether current page is cloaking against search engine or not!"
+  },
+  "popup_title": {
+    "message": "Configure Cloaker Catcher"
+  },
+  "mode_select": {
+    "message": "Select Operation Mode"
+  },
+  "mode_offline": {
+    "message": "Offline"
+  },
+  "mode_online": {
+    "message": "Online"
+  },
+  "mode_unguarded": {
+    "message": "Unguarded"
+  },
+  "mode_offline_description": {
+    "message": "Less accurate, introduces more traffic to user. Doesn't send information back to server."
+  },
+  "mode_online_description": {
+    "message": "Recommended. Contact server for blacklist/whitelist/computed models. Send URL of confirmed cloaking sites back to server."
+  },
+  "mode_unguarded_description": {
+    "message": "Turn off this extension."
+  }
+}
