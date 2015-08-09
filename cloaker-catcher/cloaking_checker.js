@@ -91,10 +91,10 @@ CloakingChecker.prototype.getModelAndCompare = function (url, pageHash, verdict)
      *  reason: 'some string'}
      *  or
      * {type: model,
-     *  text: [{volume, valueVector, std},
+     *  text: [{volume, centroid, linkHeights},
      *         {...text pattern2...}
      *        ],
-     *  dom: [{volume, valudVector, std},
+     *  dom: [{volume, centroid, linkHeights},
      *        {...dom pattern 2...}
      *       ]
      * }
@@ -114,10 +114,10 @@ CloakingChecker.prototype.getModelAndCompare = function (url, pageHash, verdict)
             // If the server just have the text and dom models, the decision is left to user.
             // Get the models returned by server and compute decision.
             for (var model in response.text) {
-                verdict.addTextModel(new SWM(model.volume, model.valueVector, model.std));
+                verdict.addTextModel(new SWM(model.volume, model.centroid, model.linkHeights));
             }
             for (var model in response.dom) {
-                verdict.addDomModel(new SWM(model.volume, model.valueVector, model.std));
+                verdict.addDomModel(new SWM(model.volume, model.centroid, model.linkHeights));
             }
             parent.handleFetchComplete(verdict);
         }

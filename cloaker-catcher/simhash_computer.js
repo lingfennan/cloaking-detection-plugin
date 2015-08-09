@@ -51,10 +51,11 @@ SimhashItem.prototype.hammingDistance = function (itemB){
 }
 
 // Simhash website model
-function SWM (volume, valueVector, std) {
+function SWM (volume, centroid, linkHeights) {
     this.volume = volume;  // number of simhashs
-    this.valueVector = valueVector;  // 64 numbers
-    this.std = std;  // standard deviation
+    this.centroid = centroid;  // 64 numbers
+    this.linkHeights = linkHeights;  // standard deviation
+    this.linkStats = HelperFunctions.average(linkHeights);
     this.modelDistance = function (simhashItem) {
         if (!simhashItem instanceof SimhashItem) {
             return null;
@@ -63,16 +64,36 @@ function SWM (volume, valueVector, std) {
         var aStr = simhashItem.getValue(2);
         for (var i = 0; i < aStr.length; i++) {
             if (aStr[i] == '1') {
-                dist += this.volumne - this.valueVector[i];
+                dist += this.volumne - this.centroid[i];
             } else {
-                dist += this.valueVector[i];
+                dist += this.centroid[i];
             }
         }
         return dist * 1.0 / this.volume;
     };
     // This is method used to decide whether dist is in model.
     this.matchesModel = function (dist, base, n) {
-        return dist < base + n * this.std ;
+        /*
+         *    y_k_1 = np.mean(link_heights)
+         57                                 y_k_2 = np.std(link_heights)
+         58                                 z_k_3 = dist - self.detection_config.min_radius
+         59                                 thres = self.detection_config.inconsistent_coefficient
+         60                                 if (z_k_3 - y_k_1) / y_k_2 < thres:
+         61                                         return False
+         62                         else:
+         63                                 thres = self.detection_config.min_radius
+         64                                 if dist < thres:
+         65                                         return False
+
+         */
+        if (this.linkHeights.length > 0) {
+            var y_k_1 = this.linkStats.mean;
+            var y_k_2 = this.linkStats.deviation;
+            var z_k_3 = dist - base;
+            return (z_k_3 - y_k_1) / y_k_2 >= n;
+        } else {
+            return dist >= base;
+        }
     };
 }
 
