@@ -55,7 +55,7 @@ function SWM (volume, centroid, linkHeights) {
     this.volume = volume;  // number of simhashs
     this.centroid = centroid;  // 64 numbers
     this.linkHeights = linkHeights;  // standard deviation
-    this.linkStats = HelperFunctions.average(linkHeights);
+    this.linkStats = (linkHeights ? HelperFunctions.average(linkHeights) : null);
     this.modelDistance = function (simhashItem) {
         if (!simhashItem instanceof SimhashItem) {
             return null;
@@ -64,7 +64,7 @@ function SWM (volume, centroid, linkHeights) {
         var aStr = simhashItem.getValue(2);
         for (var i = 0; i < aStr.length; i++) {
             if (aStr[i] == '1') {
-                dist += this.volumne - this.centroid[i];
+                dist += this.volume - this.centroid[i];
             } else {
                 dist += this.centroid[i];
             }

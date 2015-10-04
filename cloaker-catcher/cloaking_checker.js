@@ -16,7 +16,7 @@ function CloakingChecker() {
     this.domRadius = 13;
     this.textSigmaThreshold = 2.1;
     this.domSigmaThreshold = 1.8;
-    this.remoteUrl = "http://localhost:8000";
+    this.remoteUrl = Contants.serverAddress;
 }
 
 CloakingChecker.prototype.getModeName = function () {
@@ -39,7 +39,9 @@ CloakingChecker.prototype.handleFetchComplete = function (verdict) {
      */
     if (this.getModeName() == Contants.modeOnline) {
         // If any of the model matches, then we consider it match.
-        for (var model in verdict.textModels) {
+        console.log("in mode online");
+        for (var i in verdict.textModels) {
+            var model = verdict.textModels[i];
             var dist = model.modelDistance(verdict.pageHash.text);
             if (model.matchesModel(dist, this.textRadius, this.textSigmaThreshold)) {
                 var reason = "User copy and browser copy matches.";
@@ -49,9 +51,10 @@ CloakingChecker.prototype.handleFetchComplete = function (verdict) {
                 return;
             }
         }
-        for (var model in verdict.domModels) {
+        for (var i in verdict.domModels) {
+            var model = verdict.domModels[i];
             var dist = model.modelDistance(verdict.pageHash.dom);
-            if (mode.matchesModel(dist, this.domRadius, this.domSigmaThreshold)) {
+            if (model.matchesModel(dist, this.domRadius, this.domSigmaThreshold)) {
                 var reason = "User copy and browser copy matches.";
                 verdict.setResult(false, reason);
                 console.log(verdict);
@@ -81,6 +84,9 @@ CloakingChecker.prototype.handleFetchComplete = function (verdict) {
 
 CloakingChecker.prototype.getModelAndCompare = function (url, pageHash, verdict) {
     /*
+     * Request is very simple:
+     * Just a post with parameter url=$URL_TO_LOOKUP
+     *
      * Response have two types:
      * 1. the server already knows about this website ( or doesn't know anything about this website, false)
      * type == "result"
@@ -91,35 +97,56 @@ CloakingChecker.prototype.getModelAndCompare = function (url, pageHash, verdict)
      *  reason: 'some string'}
      *  or
      * {type: model,
-     *  text: [{volume, centroid, linkHeights},
+     *  text: [{size, centroid, linkHeights},
      *         {...text pattern2...}
      *        ],
-     *  dom: [{volume, centroid, linkHeights},
+     *  dom: [{size, centroid, linkHeights},
      *        {...dom pattern 2...}
      *       ]
      * }
      */
     var parent = this;
     var xhr = new XMLHttpRequest();
-    var params = "url=" + this.remoteUrl;
-    xhr.open('POST', Contants.serverAddress, true);
+    var params = "url=" + url;
+    xhr.open('POST', this.remoteUrl, true);
+
+    /* Simulate form data, so that the parameters will show up in request.POST.
+     * If the data is sent directly in POST, it will show up in request.body.
+     */
+    xhr.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+    xhr.setRequestHeader("Content-length", params.length);
+    xhr.setRequestHeader("Connection", "close");
+
     xhr.onreadystatechange = function () {
-        // The server send back information in the format of JSON.
-        var response = JSON.parse(xhr.responseText);
-        if (response.type == Contants.serverResponseResult) {
-            // If the server already knows the result.
-            verdict.setResult(response.result, response.reason);
-            parent.sendVerdictToCS(verdict);
-        } else if (response.type == Contants.serverResponseModel) {
-            // If the server just have the text and dom models, the decision is left to user.
-            // Get the models returned by server and compute decision.
-            for (var model in response.text) {
-                verdict.addTextModel(new SWM(model.volume, model.centroid, model.linkHeights));
+        if (xhr.readyState == XMLHttpRequest.DONE) {
+            if (xhr.status == 200) {
+                // The server send back information in the format of JSON.
+                var response = JSON.parse(xhr.responseText);
+                if (response.type == Contants.serverResponseResult) {
+                    // If the server already knows the result.
+                    verdict.setResult(response.result, response.reason);
+                    parent.sendVerdictToCS(verdict);
+                } else if (response.type == Contants.serverResponseModel) {
+                    // If the server just have the text and dom models, the decision is left to user.
+                    // Get the models returned by server and compute decision.
+                    console.log("in on state ready change");
+                    for (var i in response.text) {
+                        model = response.text[i];
+                        verdict.addTextModel(new SWM(model.size, model.centroid, model.link_heights));
+                    }
+                    for (var i in response.dom) {
+                        model = response.dom[i];
+                        verdict.addDomModel(new SWM(model.size, model.centroid, model.link_heights));
+                    }
+                    parent.handleFetchComplete(verdict);
+                }
             }
-            for (var model in response.dom) {
-                verdict.addDomModel(new SWM(model.volume, model.centroid, model.linkHeights));
+            else {
+                var reason = "The server doesn't have the model for current page. We want fail-safe, so set result " +
+                    "to false";
+                console.log(reason);
+                verdict.setResult(false, reason);
             }
-            parent.handleFetchComplete(verdict);
         }
     };
     xhr.send(params);
@@ -344,22 +371,19 @@ CloakingChecker.prototype.cloakingVerdict = function (request, tabId, sendRespon
     if (pageHash != null) {
         // PageHash contains function that we want to use, initialize it.
         pageHash = new PageHash(new SimhashItem(pageHash.text.value), new SimhashItem(pageHash.dom.value));
-        // If google search provides link to their cache, we fetch that copy.
-        var cacheUrl = this.cacheUrlCache.popValue(tabId);
-        if (cacheUrl && cacheUrl.indexOf(HelperFunctions.removeSchemeFromUrl(url)) != -1) {
-            var v = new BGVerdictMsg(url, host, pageHash, cacheUrl);
-            // Use cached url to fetch spider copy.
-            if (mode == Contants.modeOnline) {
-                this.cacheUrlCheckCloakingOnline(v);
-            } else if (mode == Contants.modeOffline) {
-                this.cacheUrlCheckCloakingOffline(v);
-            }
-        } else {
+        // Online only fetch model from the server, offline either fetches the cached copy or by itself.
+        if (mode == Contants.modeOnline) {
             var v = new BGVerdictMsg(url, host, pageHash);
-            // If we are requesting with pageHash set, the response is going to be sent back using message.
-            if (mode == Contants.modeOnline) {
-                this.visibleUrlCheckCloakingOnline(v);
-            } else if (mode == Contants.modeOffline) {
+            this.visibleUrlCheckCloakingOnline(v);
+        } else if (mode == Contants.modeOffline) {
+            // If google search provides link to their cache, we fetch that copy.
+            var cacheUrl = this.cacheUrlCache.popValue(tabId);
+            if (cacheUrl && cacheUrl.indexOf(HelperFunctions.removeSchemeFromUrl(url)) != -1) {
+                var v = new BGVerdictMsg(url, host, pageHash, cacheUrl);
+                // Use cached url to fetch spider copy.
+                this.cacheUrlCheckCloakingOffline(v);
+            } else {
+                var v = new BGVerdictMsg(url, host, pageHash);
                 this.visibleUrlCheckCloakingOffline(v);
             }
         }

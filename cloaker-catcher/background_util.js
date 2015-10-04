@@ -13,7 +13,8 @@ var Contants = {
     modeOffline: "offline",
     modeUnguarded: "unguarded",
     // Remote server URL for online mode
-    serverAddress: "http://moon.gtisc.gatech.edu:8000",
+    // serverAddress: "http://moon.gtisc.gatech.edu:8000",
+    serverAddress: "http://ruian.gtisc.gatech.edu:8000/cloaking_detection/patterns/",
     serverResponseResult: "result",
     serverResponseModel: "model"
 };
