@@ -16,7 +16,8 @@ var Contants = {
     // serverAddress: "http://moon.gtisc.gatech.edu:8000",
     serverAddress: "http://ruian.gtisc.gatech.edu:8000/cloaking_detection/patterns/",
     serverResponseResult: "result",
-    serverResponseModel: "model"
+    serverResponseModel: "model",
+    loggingAddress: "http://ruian.gtisc.gatech.edu:8000/cloaking_detection/logging/"
 };
 
 // The black list and white list

@@ -13,7 +13,11 @@ var Contants = {
     modeOffline: "offline",
     modeUnguarded: "unguarded",
     // Remote server URL for online mode
-    serverAddress: "http://moon.gtisc.gatech.edu:8000"
+    // serverAddress: "http://moon.gtisc.gatech.edu:8000",
+    serverAddress: "http://ruian.gtisc.gatech.edu:8000/cloaking_detection/patterns/",
+    serverResponseResult: "result",
+    serverResponseModel: "model",
+    loggingAddress: "http://ruian.gtisc.gatech.edu:8000/cloaking_detection/logging/"
 };
 
 // The black list and white list
@@ -176,15 +180,17 @@ function BGVerdictMsg(url, hostname, pageHash, cacheUrl, kSpiderCopies) {
     this.cacheUrl = cacheUrl || null;
     this.kSpiderCopies = kSpiderCopies || Contants.fetchKSpiderCopies;
     this.spiderPageHash = [];
-    // distance is optional, we need this only if we are going to call checkCloaking
-    // this.distance = 0;
+    // textModels is optional, we set this only if we are receive textModels from server.
+    this.textModels = [];
+    // domModels is similar to textModels.
+    this.domModels = [];
     this.reason = "";
     this.result = null;
 }
 
 BGVerdictMsg.prototype.addSpiderPageHash = function(pageHash) {
     this.spiderPageHash.push(pageHash);
-}
+};
 
 BGVerdictMsg.prototype.fetchComplete = function() {
     if (this.spiderPageHash.length < this.kSpiderCopies) {
@@ -192,7 +198,7 @@ BGVerdictMsg.prototype.fetchComplete = function() {
     } else {
         return true;
     }
-}
+};
 
 BGVerdictMsg.prototype.fetchAlmostComplete = function () {
     if (this.spiderPageHash.length == this.kSpiderCopies - 1) {
@@ -200,10 +206,26 @@ BGVerdictMsg.prototype.fetchAlmostComplete = function () {
     } else {
         return false;
     }
-}
+};
+
+BGVerdictMsg.prototype.addTextModel = function (model) {
+    this.textModels.push(model);
+};
+
+BGVerdictMsg.prototype.setTextModels = function (models) {
+    this.textModels = models;
+};
+
+BGVerdictMsg.prototype.addDomModel = function (model) {
+    this.domModels.push(model);
+};
+
+BGVerdictMsg.prototype.setDomModels = function (models) {
+    this.domModels = models;
+};
 
 // Message used by background script to transfer informatino to client.
 BGVerdictMsg.prototype.setResult = function (result, reason) {
     this.result = result;
     this.reason = reason || "";
-}
+};

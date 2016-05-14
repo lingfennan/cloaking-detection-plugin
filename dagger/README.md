@@ -24,3 +24,26 @@ It has several working mode.
 
 3. Unguarded:
 	Turn off this plugin.
+
+The communication between server and the client is via json dict strings.
+/*
+ * Request is very simple:
+ * Just a post with parameter url=$URL_TO_LOOKUP
+ * Response have two types:
+ * 1. the server already knows about this website ( or doesn't know anything about this website, false)
+ * type == "result"
+ * 2. the server has collected multiple copies of the website and built textModels
+ * type == "model"
+ * {type: result,
+ *  result: true | false,
+ *  reason: 'some string'}
+ *  or
+ * {type: model,
+ *  text: [{volume, centroid, linkHeights},
+ *         {...text pattern2...}
+ *        ],
+ *  dom: [{volume, centroid, linkHeights},
+ *        {...dom pattern 2...}
+ *       ]
+ * }
+ */

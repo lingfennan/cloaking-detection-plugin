@@ -53,26 +53,34 @@ else if (HelperFunctions.interestingPage(tabHost, refererHost)) {
         function (response) {
             if (response.result == null) {
                 // if current page is unknown, we compute the simahsh, send it to the backend for comparison
+
+                // Measure Simhash Computation time.
+                var t0 = performance.now();
                 var sc = new SimhashComputer();
                 var textSimhash = sc.getTextSimhash(document.body.innerText);
                 var domSimhash = sc.getDomSimhash(document.documentElement);
+                var t1 = performance.now();
+                var message = "{\"URL\": \"" + tabURL + "\", \"Computation Time(milliseconds)\": " + (t1 - t0) + "}";
+                console.log(message);
+
                 // The second time, we don't pass a callback to the background script, because XmlHttpRequest need to
                 // be synchronous in order to change request header in the background.
                 //
                 // Instead the background script will send a message to the content script later.
                 msg.pageHash = new PageHash(textSimhash, domSimhash);
+                msg.log_computation = message;
                 chrome.runtime.sendMessage({message: JSON.stringify(msg)}, null);
                 chrome.runtime.onMessage.addListener(function handleResponse(request, sender, sendResponse) {
                         // One time listener.
                         request = JSON.parse(request.message);
                         console.log(request);
                         chrome.runtime.onMessage.removeListener(handleResponse);
-                        HelperFunctions.alertIfCloaking(request);
+                        // HelperFunctions.alertIfCloaking(request);
                     }
                 );
             } else {
                 console.log("This is known website, reuse results.");
-                HelperFunctions.alertIfCloaking(response);
+                // HelperFunctions.alertIfCloaking(response);
             }
         }
     );

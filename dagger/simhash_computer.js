@@ -50,6 +50,44 @@ SimhashItem.prototype.hammingDistance = function (itemB){
     return dist;
 }
 
+// Simhash website model
+function SWM (volume, centroid, linkHeights) {
+    this.volume = volume;  // number of simhashs
+    this.centroid = centroid;  // 64 numbers
+    this.linkHeights = linkHeights;  // standard deviation
+    this.linkStats = (linkHeights ? HelperFunctions.average(linkHeights) : null);
+    this.modelDistance = function (simhashItem) {
+        if (!simhashItem instanceof SimhashItem) {
+            return null;
+        }
+        var dist = 0;
+        var aStr = simhashItem.getValue(2);
+        for (var i = 0; i < aStr.length; i++) {
+            if (aStr[i] == '1') {
+                dist += this.volume - this.centroid[i];
+            } else {
+                dist += this.centroid[i];
+            }
+        }
+        return dist * 1.0 / this.volume;
+    };
+    // This is method used to decide whether dist is in model.
+    this.matchesModel = function (dist, base, n) {
+        /*
+         * Returns:
+         *   Whether the distance matched the model, True if matches.
+         */
+        if (this.hasOwnProperty(linkHeights) && this.linkHeights.length > 0) {
+            var y_k_1 = this.linkStats.mean;
+            var y_k_2 = this.linkStats.deviation;
+            var z_k_3 = dist - base;
+            return (z_k_3 - y_k_1) / y_k_2 < n;
+        } else {
+            return dist < base;
+        }
+    };
+}
+
 // The simhash computer
 function SimhashComputer() {
     this.hashsize = 64;

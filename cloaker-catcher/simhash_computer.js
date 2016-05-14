@@ -74,25 +74,16 @@ function SWM (volume, centroid, linkHeights) {
     // This is method used to decide whether dist is in model.
     this.matchesModel = function (dist, base, n) {
         /*
-         *    y_k_1 = np.mean(link_heights)
-         57                                 y_k_2 = np.std(link_heights)
-         58                                 z_k_3 = dist - self.detection_config.min_radius
-         59                                 thres = self.detection_config.inconsistent_coefficient
-         60                                 if (z_k_3 - y_k_1) / y_k_2 < thres:
-         61                                         return False
-         62                         else:
-         63                                 thres = self.detection_config.min_radius
-         64                                 if dist < thres:
-         65                                         return False
-
+         * Returns:
+         *   Whether the distance matched the model, True if matches.
          */
-        if (this.linkHeights.length > 0) {
+        if (this.hasOwnProperty(linkHeights) && this.linkHeights.length > 0) {
             var y_k_1 = this.linkStats.mean;
             var y_k_2 = this.linkStats.deviation;
             var z_k_3 = dist - base;
-            return (z_k_3 - y_k_1) / y_k_2 >= n;
+            return (z_k_3 - y_k_1) / y_k_2 < n;
         } else {
-            return dist >= base;
+            return dist < base;
         }
     };
 }

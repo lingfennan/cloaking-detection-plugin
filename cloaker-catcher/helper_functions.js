@@ -103,6 +103,7 @@ var HelperFunctions = {
     interestingPage: function (tabHost, refererHost) {
         // A page is an interesting page, if it is not google.com and is redirected from google.com.
         return refererHost && refererHost.match(/^https?:\/\/([^\/]+\.)?google\.com(\/|$)/i) && !(tabHost.match(/google\.com/i));
+        //return true;  // TODO: Return true because we want to compute and compare every time. Remove later.
     },
     searchResultPage: function (url) {
         return url.match(/^https:\/\/www\.google\.com\/#q/i) || url.match(/^https:\/\/www\.google\.com\/search/i);
@@ -112,7 +113,14 @@ var HelperFunctions = {
         console.log(response.url);
         console.log(response.result);
         if (response.result == true) {
-            alert("This page is potentially cloaking! Because " + response.reason);
+            var r = confirm("This page is potentially cloaking! Because " + response.reason +
+                "\nDo you want to continue?");
+            if (r == true) {
+                console.log("User pressed Yes!");
+            } else {
+                window.location.replace("https://www.google.com");
+                console.log("User pressed No!");
+            }
         }
     },
     getHexRepresentation: function (num, symbols) {
@@ -160,7 +168,7 @@ var HelperFunctions = {
             return null;
         }
     },
-    isErrorPage: function(htmlText) {
+    isErrorPage: function (htmlText) {
         var title = htmlText.match(/<title>(.*?)<\/title>/m);
         if (title) {
             return (title[1].indexOf("Error 404") != -1);
@@ -168,10 +176,10 @@ var HelperFunctions = {
             return false;
         }
     },
-    removeSchemeFromUrl: function(url) {
+    removeSchemeFromUrl: function (url) {
         return url.replace(/^https?:\/\//, "");
     },
-    average : function(a) {
+    average: function (a) {
         /*
          * Args:
          *  vector: array containing numbers
@@ -185,6 +193,22 @@ var HelperFunctions = {
         for (var m, s = 0, l = t; l--; s += a[l]);
         for (m = r.mean = s / t, l = t, s = 0; l--; s += Math.pow(a[l] - m, 2));
         return r.deviation = Math.sqrt(r.variance = s / t), r;
+    },
+    // Deprecated. Open the log file for time logging.
+    saveToFile: function (filename, content) {
+        chrome.fileSystem.chooseEntry(
+            {type: 'saveFile', suggestedName: filename || 'overhead_logging.txt'},
+            function (writableFileEntry) {
+                writableFileEntry.createWriter(function (writer) {
+                    var blob = new Blob([content]);
+
+                    writer.onwriteend = function (e) {
+                        console.log("Save complete");
+                    };
+                    writer.write(blob);
+                }, errorHandler);  // errorHandler is not implemented
+            }
+        );
     }
 };
 

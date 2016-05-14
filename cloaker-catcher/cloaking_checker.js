@@ -17,6 +17,7 @@ function CloakingChecker() {
     this.textSigmaThreshold = 2.1;
     this.domSigmaThreshold = 1.8;
     this.remoteUrl = Contants.serverAddress;
+    this.loggingUrl = Contants.loggingAddress;
 }
 
 CloakingChecker.prototype.getModeName = function () {
@@ -31,7 +32,19 @@ CloakingChecker.prototype.sendVerdictToCS = function(verdict) {
     chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {
         chrome.tabs.sendMessage(tabs[0].id, {message: JSON.stringify(verdict)}, null);
     });
-}
+};
+
+CloakingChecker.prototype.postLogData = function(computeLog, compareLog) {
+    var formData = new FormData();
+    formData.append("log_computation", computeLog);
+    formData.append("log_comparison", compareLog);
+    var logPost = new XMLHttpRequest();
+    logPost.open('POST', this.loggingUrl, true);
+    logPost.onload = function () {
+        //console.log(this.responseText);
+    };
+    logPost.send(formData);
+};
 
 CloakingChecker.prototype.handleFetchComplete = function (verdict) {
     /*
@@ -40,29 +53,42 @@ CloakingChecker.prototype.handleFetchComplete = function (verdict) {
     if (this.getModeName() == Contants.modeOnline) {
         // If any of the model matches, then we consider it match.
         console.log("in mode online");
+
+        // Measure the model comparison time.
+        var t0 = performance.now();
+        var matched = false;
         for (var i in verdict.textModels) {
             var model = verdict.textModels[i];
             var dist = model.modelDistance(verdict.pageHash.text);
+            console.log("text model distance " + dist);
             if (model.matchesModel(dist, this.textRadius, this.textSigmaThreshold)) {
-                var reason = "User copy and browser copy matches.";
-                verdict.setResult(false, reason);
-                console.log(verdict);
-                this.sendVerdictToCS(verdict);
-                return;
+                matched = true;
+                break;
             }
         }
-        for (var i in verdict.domModels) {
-            var model = verdict.domModels[i];
-            var dist = model.modelDistance(verdict.pageHash.dom);
-            if (model.matchesModel(dist, this.domRadius, this.domSigmaThreshold)) {
-                var reason = "User copy and browser copy matches.";
-                verdict.setResult(false, reason);
-                console.log(verdict);
-                this.sendVerdictToCS(verdict);
-                return;
+        console.log("matched model distance " + matched);
+
+        if (!matched) {
+            for (var i in verdict.domModels) {
+                var model = verdict.domModels[i];
+                var dist = model.modelDistance(verdict.pageHash.dom);
+                console.log("dom model distance " + dist);
+                if (model.matchesModel(dist, this.domRadius, this.domSigmaThreshold)) {
+                    matched = true;
+                    break;
+                }
             }
         }
-        if (verdict.result == null) {
+        var t1 = performance.now();
+        var message = "{\"URL\": \"" + verdict.url + "\", \"Comparison Time(milliseconds)\": " + (t1 - t0) + "}";
+        console.log(message);
+        // Post the data to the server for logging purpose.
+        this.postLogData(verdict.log_computation, message);
+
+        if (matched) {
+            var reason = "User copy and browser copy matches.";
+            verdict.setResult(false, reason);
+        } else {
             var reason = "User copy and browser copy are significantly different.";
             verdict.setResult(true, reason);
         }
@@ -120,6 +146,7 @@ CloakingChecker.prototype.getModelAndCompare = function (url, pageHash, verdict)
     xhr.onreadystatechange = function () {
         if (xhr.readyState == XMLHttpRequest.DONE) {
             if (xhr.status == 200) {
+                console.log(xhr.responseText);
                 // The server send back information in the format of JSON.
                 var response = JSON.parse(xhr.responseText);
                 if (response.type == Contants.serverResponseResult) {
@@ -374,6 +401,8 @@ CloakingChecker.prototype.cloakingVerdict = function (request, tabId, sendRespon
         // Online only fetch model from the server, offline either fetches the cached copy or by itself.
         if (mode == Contants.modeOnline) {
             var v = new BGVerdictMsg(url, host, pageHash);
+            // The log is only used in online mode.
+            v.log_computation = request.log_computation;
             this.visibleUrlCheckCloakingOnline(v);
         } else if (mode == Contants.modeOffline) {
             // If google search provides link to their cache, we fetch that copy.
