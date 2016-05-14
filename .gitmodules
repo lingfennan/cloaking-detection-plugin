@@ -1,0 +1,3 @@
+[submodule "simhash-cpp"]
+	path = simhash-cpp
+	url = https://github.com/seomoz/simhash-cpp.git

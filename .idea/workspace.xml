@@ -1,24 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="5e2c0349-e51a-4399-bcad-b6b2b93a73fd" name="Default" comment="">
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/cloaker-catcher.crx" afterPath="$PROJECT_DIR$/cloaker-catcher.crx" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/data/Instant Loans Now _ Loans Approved Instantly!-user.html" afterPath="$PROJECT_DIR$/data/Instant Loans Now _ Loans Approved Instantly!-user.html" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/data/Instant Loans Now | Loans Approved Instantly!-spider.html" afterPath="$PROJECT_DIR$/data/Instant Loans Now | Loans Approved Instantly!-spider.html" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/data/Long Term Loan No Employment Check Instant _ St. Anthony's-user.html" afterPath="$PROJECT_DIR$/data/Long Term Loan No Employment Check Instant _ St. Anthony's-user.html" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/data/Long Term-user.html" afterPath="$PROJECT_DIR$/data/Long Term-user.html" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/dagger/README.md" afterPath="$PROJECT_DIR$/dagger/README.md" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/cloaker-catcher/background_util.js" afterPath="$PROJECT_DIR$/cloaker-catcher/background_util.js" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/dagger/background_util.js" afterPath="$PROJECT_DIR$/dagger/background_util.js" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/cloaker-catcher/cloaking_checker.js" afterPath="$PROJECT_DIR$/cloaker-catcher/cloaking_checker.js" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/dagger/cloaking_checker.js" afterPath="$PROJECT_DIR$/dagger/cloaking_checker.js" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/cloaker-catcher/helper_functions.js" afterPath="$PROJECT_DIR$/cloaker-catcher/helper_functions.js" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/dagger/helper_functions.js" afterPath="$PROJECT_DIR$/dagger/helper_functions.js" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/cloaker-catcher/simhash_computer.js" afterPath="$PROJECT_DIR$/cloaker-catcher/simhash_computer.js" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/dagger/simhash_computer.js" afterPath="$PROJECT_DIR$/dagger/simhash_computer.js" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/cloaker-catcher/tab_inspector.js" afterPath="$PROJECT_DIR$/cloaker-catcher/tab_inspector.js" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/dagger/tab_inspector.js" afterPath="$PROJECT_DIR$/dagger/tab_inspector.js" />
-    </list>
+    <list default="true" id="5e2c0349-e51a-4399-bcad-b6b2b93a73fd" name="Default" comment="" />
     <ignored path="cloaking-detection-plugin.iws" />
     <ignored path=".idea/workspace.xml" />
     <ignored path="$PROJECT_DIR$/out/" />
@@ -230,16 +213,6 @@
             <PATH_ELEMENT>
               <option name="myItemId" value="cloaking-detection-plugin" />
               <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
-            </PATH_ELEMENT>
-          </PATH>
-          <PATH>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="cloaking-detection-plugin" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="cloaking-detection-plugin" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
             </PATH_ELEMENT>
           </PATH>
         </subPane>
@@ -760,7 +733,7 @@
       <workItem from="1444331708859" duration="7794000" />
       <workItem from="1444455239267" duration="3297000" />
       <workItem from="1444459424057" duration="3249000" />
-      <workItem from="1463255545646" duration="54000" />
+      <workItem from="1463255545646" duration="139000" />
     </task>
     <task id="LOCAL-00001" summary="The content script and background script are set up. Text simhash works. Dom not yet. Commiting to move to bitbucket.">
       <created>1437365505140</created>
@@ -838,7 +811,7 @@
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="201196000" />
+    <option name="totallyTimeSpent" value="201281000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="0" y="23" width="1440" height="873" extended-state="6" />
